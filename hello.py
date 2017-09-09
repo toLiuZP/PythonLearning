@@ -1,3 +1,5 @@
+# coding=UTF-8
+
 print ('hello python') #this is a comment.
 
 age = 20
@@ -7,7 +9,7 @@ print('{0} was {1} years old when he wrote this book'.format(name,age))
 print(name + ' is ' +str(age) +' years old')
 print('{} was {} years old when he wrote this book'.format(name,age))
 
-#对于浮点数保留小数点后面3位
+# 对于浮点数保留小数点后面3位
 print('{0:.3f}'.format(1.0/3))
 print('{0:.3f}'.format(1/3))
 print('{0:.3f}'.format(1000/3))
@@ -20,7 +22,7 @@ print('{0:a^11}'.format('hello'))
 print('{name} wrote {book}'.format(name='Swaroop', book='A Byte of Python'))
 
 
-print('a', end='')
+print('a', end = '')
 print('b', end = '\n')
 print('c', end=' ')
 print('d', end='')

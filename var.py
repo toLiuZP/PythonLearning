@@ -1,4 +1,4 @@
-# 文件名：var.py
+#var.py
 i = 5
 print(i)
 i = i + 1
