@@ -1,5 +1,6 @@
 def print_max(x, y):
     '''Prints the maximum of two numbers.
+
     The two values must be integers'''
     # 如果可能，将其转换至整数类型
     x = int(x)
