@@ -62,7 +62,7 @@ if __name__ == '__main__':
             print('Player changing their chose now')
             print('Player''s new choose is ' + str(PlayerA.get_new_choose()) + ' door.\n')
             counter = counter + 1
-            if counter == 100000:
+            if counter == 1000:
                 running = False
 
             if LuckDoor.get_win_num() == PlayerA.get_new_choose():
