@@ -1,0 +1,3 @@
+ImmutableMultiDict([('phrase', 'kfdoiwqc,vpqp/]zfda'), ('letters', 'aeiou')])|127.0.0.1|Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1 Safari/605.1.15|{'i', 'o', 'a'}
+ImmutableMultiDict([('phrase', 'Use this form to submit a search request:'), ('letters', 'aeiou')])|127.0.0.1|Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1 Safari/605.1.15|{'o', 'u', 'e', 'i', 'a'}
+ImmutableMultiDict([('phrase', 'Welcome to search4letters on the web!'), ('letters', 'xyz!')])|127.0.0.1|Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1 Safari/605.1.15|{'!'}
