@@ -18,8 +18,6 @@ def log_request(req:'flask_request', res:str) -> None:
                 'user': 'vsearch',
                 'password': 'test',
                 'database': 'vsearchlogDB',}
-    
-
 
     conn = mysql.connector.connect(**dbconfig)
     cursor = conn.cursor()
