@@ -1,5 +1,4 @@
 import random
-#import Output_file
 
 
 class Doors(object):
@@ -8,8 +7,6 @@ class Doors(object):
     def win_choose (self):
         self.win_num = random.randint(1, 3)
 
-    def get_win_num(self):
-        return self.win_num
 
 class Player(object):
     def __init__(self,choose,new_choose):
@@ -53,7 +50,7 @@ if __name__ == '__main__':
         #if LuckDoor.get_win_num() <> PlayerA.get_choose():
             # print LuckDoor.get_win_num()
 
-        PlayerA.change_choose(LuckDoor.get_win_num())
+        PlayerA.change_choose(LuckDoor.win_num)
 
         if PlayerA.get_choose() <> PlayerA.get_new_choose():
             print('The prize is behind the {} door.'.format(LuckDoor.get_win_num()))
