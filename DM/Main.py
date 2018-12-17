@@ -33,8 +33,8 @@ if __name__ == '__main__':
         D_USER
         R_PAYMENT_TYPE
         B_GIFT_CARD_USAGE.USAGE_TRANSACTION_LOCATION_NM
-        B_USER_ROLE_LOCATION.LOCATION_NM
-        D_DAILY_ENTRANCE.FACILITY_NM
+        B_USER_ROLE_LOCATION.LOCATION_NM -- do not use it in Sales Demo.
+        D_DAILY_ENTRANCE.FACILITY_NM -- contain Texas 
         D_PERMIT.FACILITY_NM
         D_SITE.AGENCY_NM / FACILITY_NM
         D_STORE ???
@@ -55,5 +55,6 @@ if __name__ == '__main__':
     ## LiuZP start work from 12/17/2018
     ##CAMP_Scrub.replaceD_User(current_acct)
     CAMP_Scrub.replaceR_PAYMENT_TYPE(current_acct)
+    CAMP_Scrub.replaceB_GIFT_CARD_USAGE(current_acct)
 
     

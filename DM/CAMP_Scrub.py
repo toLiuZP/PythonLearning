@@ -234,3 +234,28 @@ def replaceR_PAYMENT_TYPE(acct:dict):
     
     print("Scrubbed " + str(len(result)) + ' rows')
     DBOperator.updateDM(updateSQL,acct)
+
+@clock
+def replaceB_GIFT_CARD_USAGE(acct:dict):
+
+    print('\n' + "Start to scrub B_GIFT_CARD_USAGE")
+
+    query = "SELECT GIFT_CARD_ITEM_KEY, USAGE_TRANSACTION_LOCATION_NM FROM B_GIFT_CARD_USAGE WITH(NOLOCK) WHERE LOWER(USAGE_TRANSACTION_LOCATION_NM) LIKE '%Texas State Parks%'"
+
+    result = DBOperator.queryDM(query,acct)
+
+    updateSQL = ""
+
+    for item in result:
+        
+        awoID = item[0]
+        locationNM = item[1]
+
+        if locationNM !=None:
+            locationNM = replaceTexas(locationNM)
+        
+        tempSQL = "UPDATE B_GIFT_CARD_USAGE SET USAGE_TRANSACTION_LOCATION_NM = \'" + str(locationNM) + "\' WHERE GIFT_CARD_ITEM_KEY = " +str(awoID) + ";"
+        updateSQL = updateSQL + tempSQL
+    
+    print("Scrubbed " + str(len(result)) + ' rows')
+    DBOperator.updateDM(updateSQL,acct)
