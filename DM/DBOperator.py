@@ -1,6 +1,7 @@
-import ACCT
+
 from SQLSERVERDB import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError
 
+'''
 def backupProduct():
     try:
 
@@ -19,12 +20,11 @@ def backupProduct():
     except Exception as err:
         print ('Something went wrong:', str(err))
     return "Error"
-
-def queryDM(sql_txt):
+'''
+def queryDM(sql_txt:str, acct:dict):
 
     try:
-        """Display the contents of the log file as a HTML table."""
-        with UseSqlserverDB(ACCT.dev_sales) as cursor:
+        with UseSqlserverDB(acct) as cursor:
             
             cursor.execute(sql_txt)
             contents = cursor.fetchall()
@@ -39,6 +39,7 @@ def queryDM(sql_txt):
         print ('Something went wrong:', str(err))
     return contents
 
+'''
 def scrubProduct(id, source):
 
     updateSQL = "UPDATE D_PRODUCT SET PRODUCT_NM = %s, PRODUCT_DSC = %s, PRODUCT_CD = %s WHERE AWO_ID = %s"
@@ -58,12 +59,13 @@ def scrubProduct(id, source):
     except Exception as err:
         print ('Something went wrong:', str(err))
     return "Error"
+'''
 
-def updateDM(sql):
+def updateDM(sql:str, acct:dict):
 
     try:
         """Display the contents of the log file as a HTML table."""
-        with UseSqlserverDB(ACCT.dev_sales) as cursor:
+        with UseSqlserverDB(acct) as cursor:
             
             cursor.execute(sql)
 

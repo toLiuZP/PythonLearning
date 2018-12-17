@@ -36,7 +36,7 @@ def mixProduct():
 '''
 def replaceProduct():
 
-    queryProduct = "SELECT AWO_ID, PRODUCT_NM, PRODUCT_DSC FROM D_PRODUCT WITH(NOLOCK) WHERE PRODUCT_NM LIKE '%Kansas%' OR PRODUCT_DSC LIKE '%Kansas%'"
+    queryProduct = "SELECT AWO_ID, PRODUCT_NM, PRODUCT_DSC FROM D_PRODUCT WITH(NOLOCK) WHERE PRODUCT_NM LIKE '%Kansas%' OR PRODUCT_DSC LIKE '%Kansas%' OR PRODUCT_NM LIKE '%KS%' OR PRODUCT_NM LIKE '%Ks%'"
 
     product_result = DBOperator.queryDM(queryProduct)
 
@@ -45,8 +45,8 @@ def replaceProduct():
     for item in product_result:
         
         awo_id = item[0]
-        product_nm = item[1].replace('Kansas','Aspira').replace('\'',' ').replace('KANSAS','ASPIRA')
-        product_dsc = item[2].replace('Kansas','Aspira').replace('\'',' ').replace('KANSAS','ASPIRA')
+        product_nm = item[1].replace('Kansas','Aspira').replace('\'',' ').replace('KANSAS','ASPIRA').replace('KS','ASPIRA').replace('Ks','ASPIRA')
+        product_dsc = item[2].replace('Kansas','Aspira').replace('\'',' ').replace('KANSAS','ASPIRA').replace('KS','ASPIRA').replace('Ks','ASPIRA')
 
         tempSQL = "UPDATE D_PRODUCT SET PRODUCT_NM = \'" + product_nm + "\', PRODUCT_DSC = \'" + product_dsc + "\' WHERE AWO_ID = " +str(awo_id) + ";"
         updateSQL = updateSQL + tempSQL
