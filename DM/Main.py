@@ -6,7 +6,7 @@ import ACCT
 
 if __name__ == '__main__':
 
-    current_acct = ACCT.dev_tx
+    current_acct = ACCT.UAT_CAMPING_SALES
     ''' HF Sales Demo '''
     ##Scrub.backupProduct()
     ##mixProduct()
@@ -35,13 +35,12 @@ if __name__ == '__main__':
     '''
 
 
-    '''CAMP_Scrub.replaceProduct(current_acct)
+    CAMP_Scrub.replaceProduct(current_acct)
     CAMP_Scrub.replacePaymanetAllocationDiscountNM(current_acct)
     CAMP_Scrub.replaceLocation(current_acct)
     CAMP_Scrub.replacePass(current_acct)
     CAMP_Scrub.replaceSupplier(current_acct)
-    CAMP_Scrub.replaceCustomerAddressKey(current_acct)
-    ## LiuZP start work from 12/17/2018
+    ##CAMP_Scrub.replaceCustomerAddressKey(current_acct)
     CAMP_Scrub.replaceD_User(current_acct)
     CAMP_Scrub.replaceR_PAYMENT_TYPE(current_acct)
     CAMP_Scrub.replaceB_GIFT_CARD_USAGE(current_acct)
@@ -52,6 +51,3 @@ if __name__ == '__main__':
     CAMP_Scrub.replaceD_STORE(current_acct)
 
     
-'''
-
-CAMP_Scrub.replaceCustomerAddressKey(current_acct)

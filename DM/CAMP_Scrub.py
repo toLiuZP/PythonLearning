@@ -165,15 +165,20 @@ def replaceCustomerAddressKey(acct:dict):
     query = "SELECT customer.MART_SOURCE_ID FROM D_CUSTOMER customer WITH(NOLOCK) INNER JOIN D_CUSTOMER_ADDRESS addr WITH(NOLOCK) ON addr.CUSTOMER_ADDRESS_KEY = customer.CUSTOMER_ADDRESS_KEY WHERE addr.STATE_CD = 'TX' AND customer.CUSTOMER_ADDRESS_KEY > 0"
     result = DBOperator.queryDM(query,acct)
     updateSQL = ""
+    count = 0
 
     for item in result:
         
         awo_id = item[0]
         addressKey = str(random.randint(1,2147870))
-        tempSQL = "UPDATE D_CUSTOMER SET CUSTOMER_ADDRESS_KEY = " + addressKey + ", MAILING_CUSTOMER_ADDRESS_KEY = " + addressKey + ") WHERE MART_SOURCE_ID = " + str(awo_id) + ";"
+        tempSQL = "UPDATE D_CUSTOMER SET CUSTOMER_ADDRESS_KEY = " + addressKey + ", MAILING_CUSTOMER_ADDRESS_KEY = " + addressKey + " WHERE MART_SOURCE_ID = " + str(awo_id) + ";"
         updateSQL = updateSQL + tempSQL
+        count += 1
 
-    DBOperator.updateDM(updateSQL,acct)
+        if count == 10000:
+            DBOperator.updateDM(updateSQL,acct)
+            count = 0
+    
     print("Scrubbed " + str(len(result)) + ' rows')
 
 @clock
