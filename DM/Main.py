@@ -6,7 +6,7 @@ import ACCT
 
 if __name__ == '__main__':
 
-    current_acct = ACCT.UAT_CAMPING_SALES
+    current_acct = ACCT.dev_sales
     ''' HF Sales Demo '''
     ##Scrub.backupProduct()
     ##mixProduct()
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         D_STORE.LOCATION_CLASS_NM
     '''
 
-
+    '''
     CAMP_Scrub.replaceProduct(current_acct)
     CAMP_Scrub.replacePaymanetAllocationDiscountNM(current_acct)
     CAMP_Scrub.replaceLocation(current_acct)
@@ -49,5 +49,5 @@ if __name__ == '__main__':
     CAMP_Scrub.replaceD_PERMIT(current_acct)
     CAMP_Scrub.replaceD_SITE(current_acct)
     CAMP_Scrub.replaceD_STORE(current_acct)
-
-    
+    '''
+    CAMP_Scrub.replacD_LOCATION_FacilityName(current_acct)

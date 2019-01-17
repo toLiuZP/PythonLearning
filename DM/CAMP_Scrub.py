@@ -1,6 +1,7 @@
 import DBOperator
 import random
 from LiuZP_Tool import clock 
+import ACCT
 
 
 def replaceTexas(inputString:str):
@@ -304,5 +305,32 @@ def replaceD_STORE(acct:dict):
 
     DBOperator.updateDM(updateSQL,acct)
 
+@clock
+def replacD_LOCATION_FacilityName(acct:dict):
 
+    print('\n' + "Start to D_LOCATION.FACILITY_NM")
+
+    allFacilityNameQuery = "SELECT DISTINCT [FACILITY_NM] FROM [CO_HF_MART].[dbo].[D_LOCATION] WITH(NOLOCK) WHERE FACILITY_NM LIKE '%Park%' AND FACILITY_NM NOT LIKE '%Store%' AND FACILITY_NM NOT LIKE '%TEST%' AND FACILITY_NM NOT LIKE '%www%' AND FACILITY_NM NOT LIKE '%(%' UNION SELECT DISTINCT [FACILITY_NM] FROM [KS_HF_MART].[dbo].[D_LOCATION] WITH(NOLOCK) WHERE FACILITY_NM LIKE '%Park%' AND FACILITY_NM NOT LIKE '%Store%' AND FACILITY_NM NOT LIKE '%TEST%' AND FACILITY_NM NOT LIKE '%www%' AND FACILITY_NM NOT LIKE '%(%'   UNION SELECT DISTINCT [FACILITY_NM] FROM [MS_HF_MART].[dbo].[D_LOCATION] WITH(NOLOCK) WHERE FACILITY_NM LIKE '%Park%' AND FACILITY_NM NOT LIKE '%Store%' AND FACILITY_NM NOT LIKE '%TEST%' AND FACILITY_NM NOT LIKE '%www%' AND FACILITY_NM NOT LIKE '%(%'  UNION   SELECT DISTINCT [FACILITY_NM] FROM [ASPIRA_SALES_CMPG_MART].[dbo].[D_LOCATION] WITH(NOLOCK) WHERE FACILITY_NM LIKE '%Park%' OR FACILITY_NM LIKE '%Area%' OR FACILITY_NM LIKE '%Site%' "
+
+    allFacilityName = DBOperator.queryDM(allFacilityNameQuery,acct)
+
+    query = "SELECT [LOCATION_KEY]        ,[FACILITY_NM]    FROM [ASPIRA_SALES_CMPG_MART].[dbo].[D_LOCATION]   WHERE FACILITY_NM LIKE '%Park%' OR FACILITY_NM LIKE '%Area%' OR FACILITY_NM LIKE '%Site%' "
+
+    result = DBOperator.queryDM(query,acct)
+
+    updateSQL = ""
+
+    for item in result:
+       
+        key = item[0]
+        faciltiy_NM = item[1]
+
+        if faciltiy_NM !=None:
+            faciltiy_NM = allFacilityName[random.randint(0,len(allFacilityName))][0]
+        
+        tempSQL = "UPDATE D_LOCATION SET FACILITY_NM = \'" + str(faciltiy_NM) + "\' WHERE LOCATION_KEY = " +str(key) + ";"
+        updateSQL = updateSQL + tempSQL
+    
+    DBOperator.updateDM(updateSQL,acct)
+    print("Scrubbed " + str(len(result)) + ' rows')
 
