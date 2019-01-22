@@ -10,14 +10,16 @@ def queryMetaData(acct:dict):
 
 if __name__ == '__main__':
 
-    coMetaData = queryMetaData(ACCT.qa_co)
-    salesMetaData = queryMetaData(ACCT.qa_ks)
+    sampleMetaData = queryMetaData(ACCT.qa_co)
+    targetAMetaData = queryMetaData(ACCT.qa_ms)
 
     comparePositionInd = False
 
     lastTableName = ''
 
-    for item in coMetaData:
+    gapList = []
+
+    for item in sampleMetaData:
 
         tableName = item[1]
         columnName = item[2]
@@ -25,28 +27,35 @@ if __name__ == '__main__':
         dataType = item[4]
         dataLength = item[5]
         numericScale = item[6]
-        isNullable = [7]
+        isNullable = item[7]
 
-        tableExistInd = False
+        if tableName != lastTableName:
+            tableExistInd = False
         rowExistInd = False
 
-        for row in salesMetaData:
+        for row in targetAMetaData:
             if tableName == row[1]:
                 tableExistInd = True
                 if columnName == row[2]:
                     rowExistInd = True
                     if dataType != row[4] or dataLength != row[5] or numericScale != row[6] or isNullable != row[7] :
-                        print(item)
+                        ##pass
+                        print(item + row)
                     elif comparePositionInd == True and ordinalPosition != row[3]  :
-                        print(item)
+                        pass
+                        ##print(item,row)
                 
         if tableName != lastTableName and tableExistInd == False:
-            print(tableName)
+            pass
+            ##print(tableName)
+            ##gapList.append('1',0,item)
         elif tableExistInd == True and rowExistInd == False:
-            print(item)
+            pass
+            ##print(item)
 
 
         lastTableName = tableName
+    ##print(gapList)
         
 
 
