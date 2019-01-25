@@ -3,7 +3,22 @@ import pandas as pd
 ##import DBOperator
 
 
+def merge (raw1,raw2,raw3,contract,writer):
 
+    raw1 = raw1.fillna('null')
+    raw2 = raw2.fillna('null')
+    raw3 = raw3.fillna('null')
+
+    gap = pd.merge(raw1,raw2,on = ['table_schema','table_name','column_name'],how='outer')
+    gap = pd.merge(gap,raw3,on = ['table_schema','table_name','column_name'],how='outer')
+
+    for index, row in gap.iterrows():
+                    
+        if row[4] == row[9] == row[14] and row[5] == row[10] == row[15] and row[6] == row[11] == row[16] and row[7] == row[12] == row[17]:
+            gap = gap.drop(index)
+    
+    gap.to_excel(writer,sheet_name = contract)
+    writer.save()
 
 ###print(df_ms)
 
@@ -18,23 +33,15 @@ if __name__ == '__main__':
     df_ms = DBOperator.queryDMUsePandas(query,ACCT.qa_ms)
     '''
 
-    df_co = pd.read_excel('test.xlsx', sheet_name ='co')
-    df_ms = pd.read_excel('test.xlsx', sheet_name ='ms')
-
-    df_co = df_co.fillna('null')
-    df_ms = df_ms.fillna('null')
-
-    gap = pd.merge(df_co,df_ms,on = ['table_name','column_name'],how='outer')
-
-    for index, row in gap.iterrows():
-                    
-        if row[4] == row[10] and row[5] == row[11] and row[6] == row[12] and row[7] == row[13]:
-            gap = gap.drop(index)
-
-
     writer = pd.ExcelWriter('gap.xlsx')
-    gap.to_excel(writer,sheet_name = 'gap')
-    writer.save()
+
+    raw1 = pd.read_excel('test.xlsx', sheet_name ='QA')
+    raw2 = pd.read_excel('test.xlsx', sheet_name ='UAT')
+    raw3 = pd.read_excel('test.xlsx', sheet_name ='Prod')
+
+    merge(raw1,raw2,raw3,'CO',writer)
+
+    
 
 
 
