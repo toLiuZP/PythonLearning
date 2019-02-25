@@ -39,81 +39,25 @@ if __name__ == '__main__':
     
 
     '''
-
     raw1 = DB.queryDMUsePandas(query,ACCT.qa_tx)
     raw2 = DB.queryDMUsePandas(query,ACCT.UAT_TX)
     raw3 = DB.queryDMUsePandas(query,ACCT.Prod_TX)
-
-    #merge(raw1,raw2,'TX',writer,raw3)
-    merge(raw1,raw2,'TX',writer)
 
     raw1 = DB.queryDMUsePandas(query,ACCT.DEV_MN)
     raw2 = DB.queryDMUsePandas(query,ACCT.UAT_MN)
     raw3 = DB.queryDMUsePandas(query,ACCT.Prod_MN)
 
-    #merge(raw1,raw2,'TX',writer,raw3)
-    merge(raw1,raw2,'MN',writer)
-    '''
-
-    '''
     raw1 = DB.queryDMUsePandas(query,ACCT.qa_co)
     raw2 = DB.queryDMUsePandas(query,ACCT.UAT_CO_HF_MART)
     raw3 = DB.queryDMUsePandas(query,ACCT.Prod_CO)
 
-    merge(raw1,raw2,'CO',writer,raw3)
-    '''
-    '''
     raw1 = DB.queryDMUsePandas(query,ACCT.qa_ks)
     raw2 = DB.queryDMUsePandas(query,ACCT.UAT_KS)
     raw3 = DB.queryDMUsePandas(query,ACCT.Prod_KS)
-
-    merge(raw1,raw2,'KS',writer,raw3)
 
     raw1 = DB.queryDMUsePandas(query,ACCT.qa_ms)
     raw2 = DB.queryDMUsePandas(query,ACCT.UAT_MS)
     raw3 = DB.queryDMUsePandas(query,ACCT.Prod_MS)
 
-    merge(raw1,raw2,'MS',writer,raw3)
-    
-    
-
-
-
-
-    
-    df_co.fillna(0)
-    df_ms.fillna(0)
-
-
-    gap = pd.DataFrame()
-    tableSet = pd.DataFrame()
-
-    lastTableName = ''
-    tableFound = False
-
-    for index, row in df_co.iterrows():
-
-        columnFound = False
-        if lastTableName != row[1]:
-            tableSet = df_ms[df_ms['table_name'] == row[1]]
-            tableFound = not(tableSet.empty)
-
-        if lastTableName != row[1] and tableFound == False:
-            gap = gap.append(df_co.iloc[index,1:2], ignore_index=True)
-        
-        if tableFound:
-            for i, r in tableSet.iterrows():
-                if row[2] == r[2]:
-                    columnFound = True
-                    
-                    if row[4] != r[4] or row[5] != r[5] or row[6] != r[6] or row[7] != r[7]:
-                        gap = gap.append(df_co.iloc[index]+tableSet.iloc[i], ignore_index=True)
-            
-            if not(columnFound):
-                gap = gap.append(df_co.iloc[index], ignore_index=True)
-
-        lastTableName = row[1]
-                
-    print(gap)
     '''
 
