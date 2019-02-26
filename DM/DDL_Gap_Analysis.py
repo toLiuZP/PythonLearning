@@ -32,32 +32,10 @@ if __name__ == '__main__':
     
     raw1 = DB.queryDMUsePandas(query,ACCT.qa_tx)
     raw2 = DB.queryDMUsePandas(query,ACCT.UAT_TX)
-    raw3 = DB.queryDMUsePandas(query,ACCT.qa_tx)
+    raw3 = DB.queryDMUsePandas(query,ACCT.Prod_TX)
 
     merge(raw1,raw2,'TX',writer,raw3)
     #merge(raw1,raw2,'TX',writer)
     
 
-    '''
-    raw1 = DB.queryDMUsePandas(query,ACCT.qa_tx)
-    raw2 = DB.queryDMUsePandas(query,ACCT.UAT_TX)
-    raw3 = DB.queryDMUsePandas(query,ACCT.Prod_TX)
-
-    raw1 = DB.queryDMUsePandas(query,ACCT.DEV_MN)
-    raw2 = DB.queryDMUsePandas(query,ACCT.UAT_MN)
-    raw3 = DB.queryDMUsePandas(query,ACCT.Prod_MN)
-
-    raw1 = DB.queryDMUsePandas(query,ACCT.qa_co)
-    raw2 = DB.queryDMUsePandas(query,ACCT.UAT_CO_HF_MART)
-    raw3 = DB.queryDMUsePandas(query,ACCT.Prod_CO)
-
-    raw1 = DB.queryDMUsePandas(query,ACCT.qa_ks)
-    raw2 = DB.queryDMUsePandas(query,ACCT.UAT_KS)
-    raw3 = DB.queryDMUsePandas(query,ACCT.Prod_KS)
-
-    raw1 = DB.queryDMUsePandas(query,ACCT.qa_ms)
-    raw2 = DB.queryDMUsePandas(query,ACCT.UAT_MS)
-    raw3 = DB.queryDMUsePandas(query,ACCT.Prod_MS)
-
-    '''
 

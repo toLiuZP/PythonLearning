@@ -1,6 +1,6 @@
 import DBOperator
 import random
-from LiuZP_Tool import clock 
+from tool.liuzp_tool import clock 
 import ACCT
 
 

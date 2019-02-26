@@ -1,3 +1,5 @@
+""" Time how long a function run.
+"""
 import timeit
 
 def clock(func):
