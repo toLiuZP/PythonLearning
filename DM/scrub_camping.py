@@ -1,7 +1,8 @@
-import DBOperator
 import random
+
 from tool.liuzp_tool import clock 
-import ACCT
+import acct
+import db_operator
 
 
 def replaceTexas(inputString:str):

@@ -1,11 +1,13 @@
-import DBOperator
 import random
 
-def revertStore():
+import db_operator
+
+
+def revert_store():
 
     revertStore = "UPDATE D_STORE SET STORE_NM = STORE_NM_BACKUP, VENDOR_NM = VENDOR_NM_BACKUP "
 
-    DBOperator.updateDM(revertStore)
+    db_operator.update_db(revertStore)
 
 '''
 
@@ -38,7 +40,7 @@ def replaceProduct():
 
     queryProduct = "SELECT AWO_ID, PRODUCT_NM, PRODUCT_DSC FROM D_PRODUCT WITH(NOLOCK) WHERE PRODUCT_NM LIKE '%Kansas%' OR PRODUCT_DSC LIKE '%Kansas%' OR PRODUCT_NM LIKE '%KS%' OR PRODUCT_NM LIKE '%Ks%'"
 
-    product_result = DBOperator.queryDM(queryProduct)
+    product_result = db_operator.query_db(queryProduct)
 
     updateSQL = ""
 

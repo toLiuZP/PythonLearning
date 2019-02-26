@@ -24,7 +24,6 @@ class UseSqlserverDB:
         except pymssql.ProgrammingError as err:
             raise CredentialsError(err)
         
-
     def __exit__(self,exc_type, exc_value, exc_trace) -> None:
         self.conn.commit()
         self.cursor.close()
@@ -47,7 +46,6 @@ class UseSqlserverDBPandas:
             raise DBConnectionError(err)
         except pymssql.ProgrammingError as err:
             raise CredentialsError(err)
-
 
     def __exit__(self,exc_type, exc_value, exc_trace) -> None:
         self.conn.commit()

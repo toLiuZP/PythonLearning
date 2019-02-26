@@ -1,12 +1,11 @@
-
-from SQLSERVERDB import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 import pandas as pd
 
-def queryDM(sql_txt:str, acct:dict):
+from sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 
+
+def query_db(sql_txt:str, acct:dict):
     try:
         with UseSqlserverDB(acct) as cursor:
-            
             cursor.execute(sql_txt)
             contents = cursor.fetchall()
 
@@ -20,12 +19,9 @@ def queryDM(sql_txt:str, acct:dict):
         print ('Something went wrong:', str(err))
     return contents
 
-def updateDM(sql:str, acct:dict):
-
+def update_db(sql:str, acct:dict):
     try:
-        """Display the contents of the log file as a HTML table."""
         with UseSqlserverDB(acct) as cursor:
-            
             cursor.execute(sql)
 
     except DBConnectionError as err:
@@ -38,11 +34,9 @@ def updateDM(sql:str, acct:dict):
         print ('Something went wrong:', str(err))
     return "Error"
 
-def queryDMUsePandas(sql_txt:str, acct:dict):
-
+def query_db_pandas(sql_txt:str, acct:dict):
     try:
         with UseSqlserverDBPandas(acct) as conn:
-            
             df = pd.read_sql(sql_txt,conn)
 
     except DBConnectionError as err:
