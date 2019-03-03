@@ -86,11 +86,25 @@ def check_data(cursor, checking_list, acct):
 
         if table_name in checking_list:
 
-            with UseSqlserverDBPandas(TEST_DB) as conn:
+            with UseSqlserverDBPandas(acct) as conn:
                 df = pd.read_sql(sql_text,conn)
 
-                for index, row in df.r.iterrows():
-                    pass
+                if df.iloc[0,0] != -1:
+                    print("table " + table_name + " does not have -1 key, please verify.")
+
+                null_check = df.count()
+                for index in null_check.index:
+                    if null_check[index] == 0:
+                        print("table " + table_name + "." + str(index) + " is all empty, please check.")
+
+                for column_name in df.columns:
+                    if str(column_name).endswith("_KEY") == False:
+                        df = df.drop(column_name, 1)
+                
+                df.loc['Row_sum'] = df.apply(lambda x: (x+1).sum())
+                for index in df.loc['Row_sum'].index:
+                    if df.loc['Row_sum'][index] == 0:
+                        print("table " + table_name + "." + str(index) + " is all -1, please check.")
 
         
 
@@ -99,8 +113,11 @@ if __name__ == '__main__':
     with UseSqlserverDB(TEST_DB) as cursor:
 
         not_empty_list = search_empty_tables(cursor)
-        #check_camping_duplicates(cursor)
-        check_minus_one_rows(cursor, not_empty_list)
+        check_camping_duplicates(cursor)
+        #check_minus_one_rows(cursor, not_empty_list)
+
+        check_data(cursor, not_empty_list, TEST_DB)
+
 
         
 
