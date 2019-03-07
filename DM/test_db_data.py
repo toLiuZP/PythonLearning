@@ -15,7 +15,7 @@ TEST_DB = acct.UAT_ID_CAMPING_MART
 
 def search_empty_tables(cursor) -> list:
 
-    generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK);' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
+    generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
     cursor.execute(generate_empty_validation_sql)
     rs_table_list = cursor.fetchall()
 
@@ -29,7 +29,10 @@ def search_empty_tables(cursor) -> list:
         rs_single_table_is_empty = cursor.fetchall()
 
         if len(rs_single_table_is_empty) == 0:
-            print (table_name + " is empty, please check by using:     " + sql_text)
+            print (table_name + " is empty, please check.")
+        elif len(rs_single_table_is_empty) == 1 and (str(table_name).startswith("D_") or str(table_name).startswith("R_")):
+             if rs_single_table_is_empty[0][0] == -1:
+                 print (table_name + " only has -1 key row, please check.")
         else:
             not_empty_list.append(table_name)
 
@@ -74,7 +77,7 @@ def check_minus_one_rows(cursor, checking_list):
             if rs_minus_one[0][0] != -1:
                 print (table_name + " does not have -1 key row, please check by using:     " + sql_text)
 
-def check_data(cursor, checking_list, acct):
+def check_data_by_pandas(cursor, checking_list, acct):
 
     get_all_list = "SELECT NAME, 'SELECT *  FROM ' + NAME + ' WITH(NOLOCK);' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
     cursor.execute(get_all_list)
@@ -86,11 +89,14 @@ def check_data(cursor, checking_list, acct):
 
         if table_name in checking_list:
 
+            print("Checking table: "+table_name)
+
             with UseSqlserverDBPandas(acct) as conn:
                 df = pd.read_sql(sql_text,conn)
 
-                if df.iloc[0,0] != -1:
-                    print("table " + table_name + " does not have -1 key, please verify.")
+                if str(table_name).startswith("D_")  or str(table_name).startswith("R_"):
+                    if df.iloc[0,0] != -1:
+                        print("table " + table_name + " does not have -1 key, please verify.")
 
                 null_check = df.count()
                 for index in null_check.index:
@@ -106,17 +112,58 @@ def check_data(cursor, checking_list, acct):
                     if df.loc['Row_sum'][index] == 0:
                         print("table " + table_name + "." + str(index) + " is all -1, please check.")
 
-        
+def check_data(cursor, table_list):
+
+    """
+    " 1. Validate if column is null first.
+    " 2. If columns is key, validate if it's all -1.
+    " 3. If it's MART_SOURCE_ID, validate if it has duplicates.
+    """
+
+    generate_raw_list = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' ORDER BY table_name, ordinal_position"
+    cursor.execute(generate_raw_list)
+    rs_list = cursor.fetchall()
+
+    for item in rs_list:
+        table_name = item[0]
+        column_name = item[1]
+
+        if table_name in table_list:
+            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " IS NOT NULL"
+            cursor.execute(null_check_sql)
+            rs_has_data = cursor.fetchall()
+
+            if len(rs_has_data) == 0:
+                print (table_name + "." + column_name + " is empty, please check.")
+            elif str(column_name) == "MART_SOURCE_ID" and str(table_name).startswith("B_") == False:
+                duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_name + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
+                cursor.execute(duplicate_check_sql)
+                rs_has_duplicate = cursor.fetchall()
+                if len(rs_has_duplicate) > 0:
+                    print (table_name + " has duplicaes data on MART_SOURCE_ID, please check.")
+            elif str(column_name) == "AWO_ID" and str(table_name).startswith("B_") == False:
+                duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                cursor.execute(duplicate_check_sql)
+                rs_has_duplicate = cursor.fetchall()
+                if len(rs_has_duplicate) > 0:
+                    print (table_name + " has duplicaes data on AWO_ID, please check.")
+            elif str(column_name).endswith("_KEY"):
+                key_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " > -1" 
+                cursor.execute(key_check_sql)
+                rs_is_key_minus_one = cursor.fetchall()
+                if len(rs_is_key_minus_one) == 0:
+                    print (table_name + "." + column_name + " is all -1, please verify.")
 
 if __name__ == '__main__':
 
     with UseSqlserverDB(TEST_DB) as cursor:
 
         not_empty_list = search_empty_tables(cursor)
-        check_camping_duplicates(cursor)
+        #check_camping_duplicates(cursor)
         #check_minus_one_rows(cursor, not_empty_list)
 
-        check_data(cursor, not_empty_list, TEST_DB)
+        #check_data_by_pandas(cursor, not_empty_list, TEST_DB)
+        check_data(cursor, not_empty_list)
 
 
         

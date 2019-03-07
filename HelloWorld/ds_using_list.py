@@ -15,3 +15,7 @@ olditem = shoplist[0]
 del shoplist[0]
 print('I bought the', olditem)
 print('My shopping list is now', shoplist)
+
+
+
+add fiscal_year_nb_text.

@@ -11,6 +11,9 @@ def merge(raw1, raw2, contract, writer, raw3='none'):
 
     gap = pd.merge(raw1, raw2, on = ['table_schema','table_name','column_name'], how='outer')
 
+    gap.to_excel(writer,sheet_name = contract)
+    writer.save()
+
     if isinstance(raw3, str):
         for index, row in gap.iterrows():
             if row[4] == row[9] and row[5] == row[10] and row[6] == row[11] and row[7] == row[12]:
@@ -32,12 +35,12 @@ if __name__ == '__main__':
 
     writer = pd.ExcelWriter('gap.xlsx')
     
-    raw1 = DB.query_db_pandas(query, acct.qa_tx)
-    raw2 = DB.query_db_pandas(query, acct.UAT_TX)
-    raw3 = DB.query_db_pandas(query, acct.Prod_TX)
+    raw1 = DB.query_db_pandas(query, acct.QA_CO_HF_MART)
+    raw2 = DB.query_db_pandas(query, acct.UAT_CO_HF_MART)
+    raw3 = DB.query_db_pandas(query, acct.PROD_CO_HF_MART)
 
-    merge(raw1,raw2,'TX',writer,raw3)
-    #merge(raw1,raw2,'TX',writer)
+    #merge(raw1,raw2,'CO',writer,raw3)
+    merge(raw1,raw2,'TX',writer)
     
 
 
