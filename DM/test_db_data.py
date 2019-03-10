@@ -59,7 +59,7 @@ def check_camping_duplicates(cursor):
             rs_single_table_is_empty = cursor.fetchall()
 
             if len(rs_single_table_is_empty) > 0:
-                print (table_name + " is empty, please check by using:\n" + sql_text + "\n")
+                print ("\n" + table_name + " is empty, please check by using:\n" + sql_text + "\n")
 
 def check_minus_one_rows(cursor, checking_list):
     minus_one_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (NAME LIKE 'D_%' OR NAME LIKE 'R_%') ORDER BY NAME"
@@ -140,27 +140,27 @@ def check_data(cursor, table_list):
                 cursor.execute(duplicate_check_sql)
                 rs_has_duplicate = cursor.fetchall()
                 if len(rs_has_duplicate) > 0:
-                    print (table_name + " has duplicaes data on MART_SOURCE_ID, please check.")
+                    print ("\n !!!" + table_name + " has duplicate data on MART_SOURCE_ID, please check. \n")
             elif str(column_name) == "AWO_ID" and str(table_name).startswith("B_") == False:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
                 cursor.execute(duplicate_check_sql)
                 rs_has_duplicate = cursor.fetchall()
                 if len(rs_has_duplicate) > 0:
-                    print (table_name + " has duplicaes data on AWO_ID, please check.")
+                    print ("\n !!!" + table_name + " has duplicate data on MART_SOURCE_ID, please check. \n")
             elif str(column_name).endswith("_KEY"):
                 key_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " > -1" 
                 cursor.execute(key_check_sql)
                 rs_is_key_minus_one = cursor.fetchall()
                 if len(rs_is_key_minus_one) == 0:
                     print (table_name + "." + column_name + " is all -1, please verify.")
+    
+    check_minus_one_rows(cursor, table_list)
 
 if __name__ == '__main__':
 
     with UseSqlserverDB(TEST_DB) as cursor:
 
         not_empty_list = search_empty_tables(cursor)
-        #check_camping_duplicates(cursor)
-        #check_minus_one_rows(cursor, not_empty_list)
 
         #check_data_by_pandas(cursor, not_empty_list, TEST_DB)
         check_data(cursor, not_empty_list)
