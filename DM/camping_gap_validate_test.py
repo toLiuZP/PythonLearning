@@ -11,7 +11,7 @@
 # 		select ADMISSION_type_id from O_TICKET_QUANTITY
 # 		)		
 # 		order by 1; 
-# 5. Verify stie attributes.
+# 5. Verify site attributes.
 # 	SELECT 
 #         DISTINCT
 #         a.attr_name
@@ -54,30 +54,51 @@ writer = pd.ExcelWriter('sample.xlsx')
 
 with UseOracleDB(CURRENT_DB) as cursor:
 
+    # 1. Verify if C_CUST_HFPROFILE has data. Impact D_CUSTOMER and D_CUSTOMER_ADDRESS
     has_customer_hfprofile = "SELECT * FROM " + SCHEMA + ".C_CUST_HFPROFILE WHERE ID > 1 AND ROWNUM < 2"
     cursor.execute(has_customer_hfprofile)
     row = cursor.fetchall()
     if len(row) == 0:
-        print(table_name + " is empty.")
+        print("C_CUST_HFPROFILE is empty. Please comment customer number and birthday")
 
-    for item in row:
-            owner = item[0]
-            table_name = item[1]
+    # 3. Verify what occupant type this contract has.
 
-            inquery_sql = "SELECT * FROM " + str(owner) + "." + str(table_name) + "  WHERE ROWNUM < " + str(RETURN_LIMIT) + " ORDER BY 1 DESC"
-            cursor.execute(inquery_sql)
-            row = cursor.fetchall()
+    inquery_occupant_sql = "select * from " + SCHEMA + ".P_ADMISSION_type where id in(select ADMISSION_type_id from " + SCHEMA + ".P_ADMISSION_PRD_CAT) order by 1;"
 
-            if len(row) == 0:
-                print(table_name + " is empty.")
-            else:
-                title = [i[0] for i in cursor.description]
+    cursor.execute(has_customer_hfprofile)
+    row = cursor.fetchall()
 
-                df = pd.DataFrame(row)
-                df.columns = title
-                df.to_excel(writer,sheet_name = table_name)
+    if len(row) == 0:
+        print(SCHEMA + "'s occupant type is null.")
+    else:
+        pass
 
-writer.save()
+    # 4. Verify ticket types
+
+    inquery_ticket_sql = "select * from " + SCHEMA + ".P_ADMISSION_type where id in(select ADMISSION_type_id from " + SCHEMA + ".O_TICKET_QUANTITY) order by 1;"
+
+    cursor.execute(inquery_ticket_sql)
+    row = cursor.fetchall()
+
+    if len(row) == 0:
+        print(SCHEMA + "'s ticket type is null.")
+    else:
+        pass
+
+    # 5. Verify site attributes.
+
+    inquery_site_attr_sql = "select * from " + SCHEMA + ".P_ADMISSION_type where id in(select ADMISSION_type_id from " + SCHEMA + ".O_TICKET_QUANTITY) order by 1;"
+
+    cursor.execute(inquery_site_attr_sql)
+    row = cursor.fetchall()
+
+    if len(row) == 0:
+        print(SCHEMA + "'s site attributes is null.")
+    else:
+        pass
+
+
+    
         
 
 
