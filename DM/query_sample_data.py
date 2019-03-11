@@ -26,7 +26,7 @@ with UseOracleDB(CURRENT_DB) as cursor:
             row = cursor.fetchall()
 
             if len(row) == 0:
-                print(table_name + " is empyt.")
+                print(table_name + " is empty.")
             else:
                 title = [i[0] for i in cursor.description]
 
