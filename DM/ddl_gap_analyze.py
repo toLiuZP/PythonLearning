@@ -11,8 +11,8 @@ def merge(raw1, raw2, contract, writer, raw3='none'):
 
     gap = pd.merge(raw1, raw2, on = ['table_schema','table_name','column_name'], how='outer')
 
-    gap.to_excel(writer,sheet_name = contract)
-    writer.save()
+    #gap.to_excel(writer,sheet_name = contract)
+    #writer.save()
 
     if isinstance(raw3, str):
         for index, row in gap.iterrows():

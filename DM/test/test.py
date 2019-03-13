@@ -1,17 +1,27 @@
+#-*- coding:utf-8 -*-
+ 
 from pandas import DataFrame
 import pandas as pd
 import numpy as np
 
 
-
 if __name__ == "__main__":
+
+    name = "test"
+    key = "123"
+
+    print('[KEY: \033[1;32m test \033[0m, value: 123 ] only exists in target schema.')
+
+    print("[KEY: \033[1;32m{}\033[0m, value: {} ] only exists in target schema.".format(name,key))
+
+    '''
 
     df = pd.read_excel("test.xlsx")
     #df.loc['Row_sum'] = df.apply(lambda x: x.sum())
-    '''
+    
     print(df)
     print(df.count())
-    '''
+    
 
     if df.iloc[0,0] != -1:
         print("table xxx does not have -1 key, please verify.")
@@ -38,3 +48,4 @@ if __name__ == "__main__":
             print(str(index) + " is all -1, please check.")
     
     #print(df)
+    '''

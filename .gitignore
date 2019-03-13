@@ -1,2 +1,2 @@
-DM/ACCT.py
-DM/acct_oracle.py
+DM/conf/acct.py
+DM/conf/acct_oracle.py
