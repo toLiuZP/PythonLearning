@@ -2,14 +2,14 @@ import numpy as np
 import pandas as pd
 import cx_Oracle as oracle
 
-from oracle_db import UseOracleDB
-import acct_oracle
+from db_connect.oracle_db import UseOracleDB
+import conf.acct_oracle as acct_oracle
 
 CURRENT_DB = acct_oracle.PROD_US
 RETURN_LIMIT = 101
 SEARCH_KEYS = 'SUSP'
 
-writer = pd.ExcelWriter('sample.xlsx')
+writer = pd.ExcelWriter('.\output\sample.xlsx')
 
 with UseOracleDB(CURRENT_DB) as cursor:
 
