@@ -13,7 +13,7 @@ if __name__ == "__main__":
     name = "test"
     key = "123"
 
-    print('[KEY: \033[32m test \033[0m, value: 123 ] only exists in target schema.')
+    print("[KEY: \033[32m"  + name + "\033[0m, value: 123 ] only exists in target schema.")
 
     print("[KEY: \033[31m{}\033[0m, value: {} ] only exists in target schema.".format(name,key))
 

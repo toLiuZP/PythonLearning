@@ -37,6 +37,7 @@
 import numpy as np
 import pandas as pd
 import cx_Oracle as oracle
+import os
 
 import conf.acct_oracle as acct_oracle
 from db_connect.oracle_db import UseOracleDB
@@ -44,8 +45,9 @@ from tool.df_compare import has_gap
 
 CURRENT_DB = acct_oracle.PROD_US
 SCHEMA = 'LIVE_IA'
-
 SEED_FILE = '.\seed\TX_CAMPING_CFG.xlsx'
+
+os.system("")
 
 with UseOracleDB(CURRENT_DB) as cursor:
 
