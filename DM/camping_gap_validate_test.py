@@ -43,7 +43,7 @@ import conf.acct_oracle as acct_oracle
 from db_connect.oracle_db import UseOracleDB
 from tool.df_compare import has_gap
 
-CURRENT_DB = acct_oracle.PROD_US
+CURRENT_DB = acct_oracle.QA3
 SCHEMA = 'LIVE_IA'
 SEED_FILE = '.\seed\TX_CAMPING_CFG.xlsx'
 
@@ -72,9 +72,6 @@ with UseOracleDB(CURRENT_DB) as cursor:
     else:
         occupant_type_seed = pd.read_excel(SEED_FILE,sheet_name = "P_ADMISSION_PRD_CAT")
         occupant_type_return = pd.DataFrame(row)
-        title = [i[0] for i in cursor.description]
-        occupant_type_return.columns = title
-
         has_gap(occupant_type_seed,occupant_type_return,"Occupant type")
 
     # 4. Verify ticket types
@@ -89,9 +86,6 @@ with UseOracleDB(CURRENT_DB) as cursor:
     else:        
         ticket_type_seed = pd.read_excel(SEED_FILE,sheet_name = "O_TICKET_QUANTITY")
         ticket_type_return = pd.DataFrame(row)
-        title = [i[0] for i in cursor.description]
-        ticket_type_return.columns = title
-
         has_gap(ticket_type_seed,ticket_type_return,"ticket type")
 
     # 5. Verify site attributes.
@@ -106,9 +100,6 @@ with UseOracleDB(CURRENT_DB) as cursor:
     else:
         site_attr_seed = pd.read_excel(SEED_FILE,sheet_name = "SITE_ATTRIBUTES")
         site_attr_return = pd.DataFrame(row)
-        title = [i[0] for i in cursor.description]
-        site_attr_return.columns = title
-
         has_gap(site_attr_seed,site_attr_return,"Site Attributes")
     
     

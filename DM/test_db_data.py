@@ -146,26 +146,26 @@ def check_data(cursor, table_list):
                                 cursor.execute(duplicate_check_sql)
                                 rs_has_duplicate = cursor.fetchall()
                                 if len(rs_has_duplicate) > 0:
-                                    print ("\033[31m" + old_table_name + " has duplicate data on MART_SOURCE_ID \033[0m, \033[33mplease check by SELECT * FROM " + old_table_name + " WHERE MART_SOURCE_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+                                    print ("\n\033[31m" + old_table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \033[33mSELECT * FROM " + old_table_name + " WHERE MART_SOURCE_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
 
                             if has_awo_id == True and has_cur_rec_ind == True:
                                 duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
                                 cursor.execute(duplicate_check_sql)
                                 rs_has_duplicate = cursor.fetchall()
                                 if len(rs_has_duplicate) > 0:
-                                    print ("\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, \033[33m please check. SELECT * FROM " + old_table_name + " WHERE CUR_REC_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+                                    print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE CUR_REC_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
                             if has_awo_id == True and has_current_record_ind == True:
                                 duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
                                 cursor.execute(duplicate_check_sql)
                                 rs_has_duplicate = cursor.fetchall()
                                 if len(rs_has_duplicate) > 0:
-                                    print ("\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, \033[33m please check. SELECT * FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+                                    print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
                             elif has_awo_id == True and has_current_record_ind == False and has_cur_rec_ind == False:
                                 duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
                                 cursor.execute(duplicate_check_sql)
                                 rs_has_duplicate = cursor.fetchall()
                                 if len(rs_has_duplicate) > 0:
-                                    print ("\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, \033[33m please check. SELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+                                    print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
 
                 table_count = table_count + 1
                 has_mart_source_id = False
@@ -193,11 +193,8 @@ def check_data(cursor, table_list):
                 cursor.execute(key_check_sql)
                 rs_is_key_minus_one = cursor.fetchall()
                 if len(rs_is_key_minus_one) == 0:
-                    print (table_name + "." + column_name + " is all -1, please verify.")
-            
-
-
-  
+                    print ("\033[32m" + table_name + "." + column_name + "\033[0m is all -1, please verify.")
+              
     check_minus_one_rows(cursor, table_list)
 
 if __name__ == '__main__':
@@ -205,7 +202,6 @@ if __name__ == '__main__':
     with UseSqlserverDB(TEST_DB) as cursor:
 
         not_empty_list = search_empty_tables(cursor)
-
         #check_data_by_pandas(cursor, not_empty_list, TEST_DB)
         check_data(cursor, not_empty_list)
 
