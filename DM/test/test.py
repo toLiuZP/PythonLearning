@@ -3,6 +3,9 @@
 from pandas import DataFrame
 import pandas as pd
 import numpy as np
+import os
+
+os.system("")
 
 
 if __name__ == "__main__":
@@ -10,11 +13,11 @@ if __name__ == "__main__":
     name = "test"
     key = "123"
 
-    print('[KEY: \033[1;32m test \033[0m, value: 123 ] only exists in target schema.')
+    print('[KEY: \033[32m test \033[0m, value: 123 ] only exists in target schema.')
 
-    print("[KEY: \033[1;32m{}\033[0m, value: {} ] only exists in target schema.".format(name,key))
+    print("[KEY: \033[31m{}\033[0m, value: {} ] only exists in target schema.".format(name,key))
 
-    '''
+    '''34
 
     df = pd.read_excel("test.xlsx")
     #df.loc['Row_sum'] = df.apply(lambda x: x.sum())

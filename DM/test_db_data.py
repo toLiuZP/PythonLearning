@@ -3,19 +3,19 @@
 import pandas as pd
 import numpy as np
 
-import acct
-from sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
+import conf.acct as acct
+from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 
 # validate if duplciates by group by on mart_source_id
 # validate if there is empty table
 # validate if any key is all -1 value or any column is all null
 # check if there is -1 row for D_ and R_
 
-TEST_DB = acct.UAT_ID_CAMPING_MART
+TEST_DB = acct.UAT_CO_HF_MART
 
 def search_empty_tables(cursor) -> list:
 
-    generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
+    generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (name NOT LIKE 'MSpeer_%' AND name NOT LIKE 'MSpub_%' AND name NOT LIKE 'syncobj_0x%' AND name NOT LIKE 'sysarticle%' AND name NOT LIKE 'sysextendedarticlesview' AND name NOT LIKE 'syspublications' AND name <> 'sysreplservers' AND name <> 'sysreplservers' AND name <> 'sysschemaarticles' AND name <> 'syssubscriptions' AND name <> 'systranschemas' AND name NOT LIKE 'O_LEGACY_%' AND name NOT LIKE 'QUEST_%' and name <> 'D_AUDIT_LOG') ORDER BY name"
     cursor.execute(generate_empty_validation_sql)
     rs_table_list = cursor.fetchall()
 
@@ -124,11 +124,58 @@ def check_data(cursor, table_list):
     cursor.execute(generate_raw_list)
     rs_list = cursor.fetchall()
 
+    has_mart_source_id = False
+    has_awo_id = False
+    has_cur_rec_ind = False
+    has_current_record_ind = False
+    old_table_name = ""
+    table_count = 0
+
     for item in rs_list:
         table_name = item[0]
         column_name = item[1]
+           
 
         if table_name in table_list:
+
+            
+            if old_table_name != table_name:
+                if table_count != 0:
+                            if has_mart_source_id == True:
+                                duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + old_table_name + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
+                                cursor.execute(duplicate_check_sql)
+                                rs_has_duplicate = cursor.fetchall()
+                                if len(rs_has_duplicate) > 0:
+                                    print ("\n !!!" + old_table_name + " has duplicate data on MART_SOURCE_ID, please check by SELECT * FROM " + old_table_name + " WHERE MART_SOURCE_ID = " + str(rs_has_duplicate[0][0]) + "\n")
+
+                            if has_awo_id == True and has_cur_rec_ind == True:
+                                duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                                cursor.execute(duplicate_check_sql)
+                                rs_has_duplicate = cursor.fetchall()
+                                if len(rs_has_duplicate) > 0:
+                                    print ("\n !!!" + old_table_name + " has duplicate data on AWO_ID, please check. SELECT * FROM " + old_table_name + " WHERE CUR_REC_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\n")
+                            if has_awo_id == True and has_current_record_ind == True:
+                                duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                                cursor.execute(duplicate_check_sql)
+                                rs_has_duplicate = cursor.fetchall()
+                                if len(rs_has_duplicate) > 0:
+                                    print ("\n !!!" + old_table_name + " has duplicate data on AWO_ID, please check. SELECT * FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\n")
+                            elif has_awo_id == True and has_current_record_ind == False and has_cur_rec_ind == False:
+                                duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                                cursor.execute(duplicate_check_sql)
+                                rs_has_duplicate = cursor.fetchall()
+                                if len(rs_has_duplicate) > 0:
+                                    print ("\n !!!" + old_table_name + " has duplicate data on AWO_ID, please check. SELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\n")
+
+                table_count = table_count + 1
+                has_mart_source_id = False
+                has_awo_id = False
+                has_cur_rec_ind = False
+                has_current_record_ind = False
+
+                old_table_name = table_name
+            
+
             null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " IS NOT NULL"
             cursor.execute(null_check_sql)
             rs_has_data = cursor.fetchall()
@@ -136,24 +183,23 @@ def check_data(cursor, table_list):
             if len(rs_has_data) == 0:
                 print (table_name + "." + column_name + " is empty, please check.")
             elif str(column_name) == "MART_SOURCE_ID" and str(table_name).startswith("B_") == False:
-                duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_name + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
-                cursor.execute(duplicate_check_sql)
-                rs_has_duplicate = cursor.fetchall()
-                if len(rs_has_duplicate) > 0:
-                    print ("\n !!!" + table_name + " has duplicate data on MART_SOURCE_ID, please check. \n")
+                has_mart_source_id = True
             elif str(column_name) == "AWO_ID" and str(table_name).startswith("B_") == False:
-                duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                cursor.execute(duplicate_check_sql)
-                rs_has_duplicate = cursor.fetchall()
-                if len(rs_has_duplicate) > 0:
-                    print ("\n !!!" + table_name + " has duplicate data on MART_SOURCE_ID, please check. \n")
-            elif str(column_name).endswith("_KEY"):
+                has_awo_id = True
+            elif str(column_name) == "CUR_REC_IND" and str(table_name).startswith("B_") == False:
+                has_cur_rec_ind = True
+            elif str(column_name) == "CURRENT_RECORD_IND" and str(table_name).startswith("B_") == False:
+                has_current_record_ind = True
+            elif str(column_name).endswith("_KEY") and (column_name != "LABEL_KEY" and table_name != "D_TRANSLATION"):
                 key_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " > -1" 
                 cursor.execute(key_check_sql)
                 rs_is_key_minus_one = cursor.fetchall()
                 if len(rs_is_key_minus_one) == 0:
                     print (table_name + "." + column_name + " is all -1, please verify.")
-    
+            
+
+
+  
     check_minus_one_rows(cursor, table_list)
 
 if __name__ == '__main__':
