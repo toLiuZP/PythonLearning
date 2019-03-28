@@ -1,6 +1,6 @@
 import random
 
-import db_operator
+import db_connect.db_operator as db_operator
 
 
 def revert_store():

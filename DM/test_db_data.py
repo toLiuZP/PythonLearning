@@ -9,8 +9,8 @@ os.system("")
 import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 
-# validate if duplciates by group by on mart_source_id
 # validate if there is empty table
+# validate if duplciates by group by on mart_source_id/awo_id/awo_id + CUR_REC_IND / awo_id + CURRENT_RECORD_IND
 # validate if any key is all -1 value or any column is all null
 # check if there is -1 row for D_ and R_
 
@@ -40,7 +40,7 @@ def search_empty_tables(cursor) -> list:
             not_empty_list.append(table_name)
 
     return not_empty_list
-
+'''
 def check_camping_duplicates(cursor):
 
     generate_check_list = "SELECT NAME, 'SELECT MART_SOURCE_ID, COUNT(*)  FROM ' + NAME + ' WITH(NOLOCK) GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
@@ -63,7 +63,7 @@ def check_camping_duplicates(cursor):
 
             if len(rs_single_table_is_empty) > 0:
                 print ("\n" + table_name + " is empty, please check by using:\n" + sql_text + "\n")
-
+'''
 def check_minus_one_rows(cursor, checking_list):
     minus_one_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (NAME LIKE 'D_%' OR NAME LIKE 'R_%') ORDER BY NAME"
     cursor.execute(minus_one_sql)
@@ -78,8 +78,8 @@ def check_minus_one_rows(cursor, checking_list):
             rs_minus_one = cursor.fetchall()
 
             if rs_minus_one[0][0] != -1:
-                print (table_name + " does not have -1 key row, please check by using:     " + sql_text)
-
+                print ("\033[32m" + table_name + "\033[0m does not have -1 key row, please check by using:     " + sql_text)
+'''
 def check_data_by_pandas(cursor, checking_list, acct):
 
     get_all_list = "SELECT NAME, 'SELECT *  FROM ' + NAME + ' WITH(NOLOCK);' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
@@ -114,7 +114,7 @@ def check_data_by_pandas(cursor, checking_list, acct):
                 for index in df.loc['Row_sum'].index:
                     if df.loc['Row_sum'][index] == 0:
                         print("table " + table_name + "." + str(index) + " is all -1, please check.")
-
+'''
 def check_data(cursor, table_list):
 
     """
@@ -179,7 +179,7 @@ def check_data(cursor, table_list):
             rs_has_data = cursor.fetchall()
 
             if len(rs_has_data) == 0:
-                print (table_name + "." + column_name + " is empty, please check.")
+                print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty, please check.")
             elif str(column_name) == "MART_SOURCE_ID" and str(table_name).startswith("B_") == False:
                 has_mart_source_id = True
             elif str(column_name) == "AWO_ID" and str(table_name).startswith("B_") == False:

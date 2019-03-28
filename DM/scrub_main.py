@@ -1,12 +1,12 @@
 import scrub_camping
-import scrub_hf
-import acct
+#import scrub_hf
+import conf.acct as acct
 
      
 
 if __name__ == '__main__':
 
-    current_acct = acct.dev_sales
+    current_acct = acct.UAT_CAMPING_SALES
     ''' HF Sales Demo '''
     ##scrub_hf.backupProduct()
     ##mixProduct()
@@ -40,7 +40,8 @@ if __name__ == '__main__':
     scrub_camping.replaceLocation(current_acct)
     scrub_camping.replacePass(current_acct)
     scrub_camping.replaceSupplier(current_acct)
-    ##scrub_camping.replaceCustomerAddressKey(current_acct)
+    scrub_camping.replaceCustomerAddressKey(current_acct)
+    
     scrub_camping.replaceD_User(current_acct)
     scrub_camping.replaceR_PAYMENT_TYPE(current_acct)
     scrub_camping.replaceB_GIFT_CARD_USAGE(current_acct)
@@ -49,5 +50,6 @@ if __name__ == '__main__':
     scrub_camping.replaceD_PERMIT(current_acct)
     scrub_camping.replaceD_SITE(current_acct)
     scrub_camping.replaceD_STORE(current_acct)
-    '''
     scrub_camping.replacD_LOCATION_FacilityName(current_acct)
+    '''
+    scrub_camping.replaceXXX_MESSAGE(current_acct)

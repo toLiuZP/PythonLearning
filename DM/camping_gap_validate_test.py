@@ -43,8 +43,8 @@ import conf.acct_oracle as acct_oracle
 from db_connect.oracle_db import UseOracleDB
 from tool.df_compare import has_gap
 
-CURRENT_DB = acct_oracle.QA3
-SCHEMA = 'LIVE_IA'
+CURRENT_DB = acct_oracle.PROD_US
+SCHEMA = 'LIVE_VA'
 SEED_FILE = '.\seed\TX_CAMPING_CFG.xlsx'
 
 os.system("")

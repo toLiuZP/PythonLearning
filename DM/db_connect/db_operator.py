@@ -1,6 +1,6 @@
 import pandas as pd
 
-from sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
+from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 
 
 def query_db(sql_txt:str, acct:dict):
