@@ -39,6 +39,13 @@ import pandas as pd
 #import cx_Oracle as oracle
 import os
 
+from openpyxl import Workbook
+
+from openpyxl import load_workbook
+
+from openpyxl.writer.excel import ExcelWriter
+import time
+
 #import conf.acct_oracle as acct_oracle
 #from db_connect.oracle_db import UseOracleDB
 #from tool.df_compare import has_gap
@@ -51,7 +58,57 @@ SEED_FILE = 'DDT.xlsx'
 writer = pd.ExcelWriter('est.xlsx')
 
 os.system("")
+nameTime = time.strftime('%Y%m%d_%H%M%S')
+excelName = 'est' + nameTime + '.xlsx'
 
+workbook_ = load_workbook(SEED_FILE)
+
+sheetnames =workbook_.get_sheet_names() 
+
+for sheetname in sheetnames:
+    sheet = workbook_.get_sheet_by_name(sheetname)
+    rows = sheet.rows
+    columns = sheet.columns
+
+    if sheet['A1'].value == 'Datasets':
+
+        for i in range(2, sheet.max_column+1, 2):
+            for j in range(3,sheet.max_row+1):
+                sheet.cell(row=j,column=i).value = 'X'
+    elif sheet['A1'].value == 'Domain\nFields':
+
+        for i in range(3, sheet.max_column+1, 2):
+            for j in range(3,sheet.max_row+1):
+                sheet.cell(row=j,column=i).value = 'X'
+    '''
+
+    for row in rows:
+
+        for col in row:
+            print("test")
+
+        #line = [col.value for col in row]
+
+        #print(line)
+
+    print(sheet.cell(row=3,column=3).value)
+    '''
+
+#sheet['A1'] = '47' 
+
+workbook_.save(excelName)  
+
+print("test")
+'''
+wb = Workbook()
+
+ws = wb.active
+
+ws['A1'] = 4
+
+wb.save("新歌检索失败.xlsx") 
+'''
+'''
 test_e = pd.read_excel(SEED_FILE)
 df = pd.DataFrame(test_e)
 
@@ -63,6 +120,7 @@ writer.save()
 
 pass
 pass
+'''
 '''
 with UseOracleDB(CURRENT_DB) as cursor:
 
