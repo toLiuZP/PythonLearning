@@ -43,12 +43,26 @@ import conf.acct_oracle as acct_oracle
 from db_connect.oracle_db import UseOracleDB
 from tool.df_compare import has_gap
 
-CURRENT_DB = acct_oracle.PROD_US
+CURRENT_DB = acct_oracle.QA3
 SCHEMA = 'LIVE_CO'
-SEED_FILE = '.\seed\TX_CAMPING_CFG.xlsx'
+SEED_FILE = '.\seed\Domain Data Template.xlsx'
+
+writer = pd.ExcelWriter('.\output\est.xlsx')
 
 os.system("")
 
+test_e = pd.read_excel(SEED_FILE)
+df = pd.DataFrame(test_e)
+
+df.index = df.Datasets
+df.loc['Customer_Profile','KS'] = 'X'
+
+df.to_excel(writer,sheet_name = '123')
+writer.save()
+
+pass
+pass
+'''
 with UseOracleDB(CURRENT_DB) as cursor:
 
     # 1. Verify if C_CUST_HFPROFILE has data. Impact D_CUSTOMER and D_CUSTOMER_ADDRESS
@@ -56,7 +70,7 @@ with UseOracleDB(CURRENT_DB) as cursor:
     cursor.execute(has_customer_hfprofile)
     row = cursor.fetchall()
     if len(row) == 0:
-        print("C_CUST_HFPROFILE is empty. Please comment customer number and birthday")
+        print("C_CUST_HFPROFILE is empty. Please commentet customer number and birthday")
     else:
         print("Please use hfprofile and load customer number and birthday")
 
@@ -101,6 +115,7 @@ with UseOracleDB(CURRENT_DB) as cursor:
         site_attr_seed = pd.read_excel(SEED_FILE,sheet_name = "SITE_ATTRIBUTES")
         site_attr_return = pd.DataFrame(row)
         has_gap(site_attr_seed,site_attr_return,"Site Attributes")
+'''
     
     
 

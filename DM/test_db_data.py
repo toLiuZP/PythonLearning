@@ -14,7 +14,10 @@ from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, Credentia
 # validate if any key is all -1 value or any column is all null
 # check if there is -1 row for D_ and R_
 
-TEST_DB = acct.UAT_CO_HF_MART
+TARGET_DB = acct.PROD_KS_HF_MART
+
+
+
 
 def search_empty_tables(cursor) -> list:
 
@@ -138,6 +141,8 @@ def check_data(cursor, table_list):
         table_name = item[0]
         column_name = item[1]
 
+        #print("Checking "+ str(table_name) + "." + str(column_name))
+
         if table_name in table_list:
             if old_table_name != table_name:
                 if table_count != 0:
@@ -199,7 +204,7 @@ def check_data(cursor, table_list):
 
 if __name__ == '__main__':
 
-    with UseSqlserverDB(TEST_DB) as cursor:
+    with UseSqlserverDB(TARGET_DB) as cursor:
 
         not_empty_list = search_empty_tables(cursor)
         #check_data_by_pandas(cursor, not_empty_list, TEST_DB)
