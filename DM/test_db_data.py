@@ -14,7 +14,7 @@ from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, Credentia
 # validate if any key is all -1 value or any column is all null
 # check if there is -1 row for D_ and R_
 
-TARGET_DB = acct.PROD_KS_HF_MART
+TARGET_DB = acct.DEV_VA_CAMPING_MART
 
 
 
