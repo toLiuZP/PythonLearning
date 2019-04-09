@@ -36,18 +36,19 @@
 
 import numpy as np
 import pandas as pd
-import cx_Oracle as oracle
+#import cx_Oracle as oracle
 import os
 
-import conf.acct_oracle as acct_oracle
-from db_connect.oracle_db import UseOracleDB
-from tool.df_compare import has_gap
+#import conf.acct_oracle as acct_oracle
+#from db_connect.oracle_db import UseOracleDB
+#from tool.df_compare import has_gap
 
-CURRENT_DB = acct_oracle.QA3
+#CURRENT_DB = acct_oracle.QA3
 SCHEMA = 'LIVE_CO'
-SEED_FILE = '.\seed\Domain Data Template.xlsx'
+#SEED_FILE = '.\seed\Domain Data Template.xlsx'
+SEED_FILE = 'DDT.xlsx'
 
-writer = pd.ExcelWriter('.\output\est.xlsx')
+writer = pd.ExcelWriter('est.xlsx')
 
 os.system("")
 
