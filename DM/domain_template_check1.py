@@ -50,6 +50,7 @@ import conf.acct_oracle as acct_oracle
 from db_connect.oracle_db import UseOracleDB
 from tool.df_compare import has_gap
 import tool.oracle_tool as oracle_tool
+import tool.tool as tool
 
 CURRENT_DB = acct_oracle.PROD_US
 #SCHEMA = 'LIVE_CO'
@@ -60,7 +61,7 @@ writer = pd.ExcelWriter('est.xlsx')
 
 os.system("")
 nameTime = time.strftime('%Y%m%d_%H%M%S')
-excelName = 'est' + nameTime + '.xlsx'
+excelName = tool.file_name('est','xlsx')
 
 workbook_ = load_workbook(SEED_FILE)
 
