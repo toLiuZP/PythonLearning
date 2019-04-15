@@ -9,3 +9,12 @@ def has_row(query, cursor):
         return False
     else:
         return True
+
+def inquery_single_row(query, cursor):
+
+    cursor.execute(query)
+    result = cursor.fetchall()
+    if len(result) > 0:
+        return str(result[0][0])
+    else :
+        return ''
