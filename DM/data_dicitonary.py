@@ -3,17 +3,11 @@
 ###
 
 
-import numpy as np
-import pandas as pd
-import cx_Oracle as oracle
-import os
-
 from openpyxl import Workbook
-
 from openpyxl import load_workbook
 
 from openpyxl.writer.excel import ExcelWriter
-import time
+
 
 from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 import conf.acct as acct
@@ -21,26 +15,9 @@ import tool.TSQL_function as TSQL_function
 import tool.tool as tool
 
 CURRENT_DB = acct.DEV_CA_DMA_MART
-#SCHEMA = 'LIVE_CO'
 SEED_FILE = '.\seed\DataDictionary_Template.xlsx'
-
-#writer = pd.ExcelWriter('DataDictionary.xlsx')
-
-os.system("")
-nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = tool.file_name('DataDictionary','xlsx')
-
-
 workbook = load_workbook(SEED_FILE)
-'''
-sheetnames =workbook_.get_sheet_names() 
-
-query_sheet = workbook_.get_sheet_by_name('Checking_Query')
-
-with UseOracleDB(CURRENT_DB) as cursor:
-
-    for sheetname in sheetnames:
-        '''
 
 with UseSqlserverDB(CURRENT_DB) as cursor:
     sheet = workbook.get_sheet_by_name('DataDictionary')
