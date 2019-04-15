@@ -61,7 +61,7 @@ writer = pd.ExcelWriter('est.xlsx')
 
 os.system("")
 nameTime = time.strftime('%Y%m%d_%H%M%S')
-excelName = tool.file_name('est','xlsx')
+excelName = tool.file_name('Domain Data Template','xlsx')
 
 workbook_ = load_workbook(SEED_FILE)
 
