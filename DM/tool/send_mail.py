@@ -7,7 +7,6 @@ from email.utils import formataddr
 
 def send_mail(msg):
     sender = 'toliuzp@qq.com' 
-    #receivers = ('zongpei.liu@aspiraconnect.com')
     #receivers = ['zongpei.liu@aspiraconnect.com','Tom.Xie@aspiraconnect.com','Gary.Zhou@aspiraconnect.com','Tim.Wang@aspiraconnect.com']
     receivers = ['zongpei.liu@aspiraconnect.com','toliuzp@qq.com']
 

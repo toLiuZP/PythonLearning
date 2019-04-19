@@ -12,11 +12,36 @@ import tool.tool as tool
 from dateutil.parser import parse
 import tool.send_mail as mail
 
-def getMartTime():
-    pass
+def getMartTime(mart_server, mart_list, model_type, matrix):
+    with UseSqlserverDB(mart_server) as cursor:
+        for schema in mart_list:
+            if model_type == 'HF':
+                query = "SELECT MAX(SRC_SNPSHT_DT) FROM " + schema + "_HF_MART.DBO.F_ORDER_ITEM_TRANSACTION WITH(NOLOCK)"
+            elif model_type == 'Camping':
+                query = "SELECT MAX(ORDER_DTM) FROM " + schema + "_CAMPING_MART.DBO.D_ORDER WITH(NOLOCK)"
+            result = TSQL.inquery_single_row(query,cursor)
 
-def getAOTime():
-    pass
+            for item in matrix:
+                if item[0] == schema:
+                    item[2] = result
+                    item[4] = query
+    return matrix
+    
+
+def getAOTime(ao_server, ao_list, model_type, matrix):
+    with UseOracleDB(ao_server) as cursor:
+        for schema in ao_list:
+            if model_type == 'HF':
+                query = "SELECT MAX(TRANS_DATE) FROM LIVE_" + schema + ".O_ORD_ITEM_TRANS WHERE TRANS_DATE < to_date('9990-10-10','yyyy-mm-dd')"
+            elif model_type == 'Camping':
+                query = "SELECT MAX(ORD_DATE) FROM LIVE_" + schema + ".O_ORDER WHERE ORD_DATE < to_date('9990-10-10','yyyy-mm-dd')"
+            result = oracle_tool.inquery_single_row(query,cursor)
+
+            for item in matrix:
+                if item[0] == schema:
+                    item[1] = result
+                    item[3] = query
+    return matrix
 
 def isDelay():
     pass
@@ -35,7 +60,7 @@ US_AO_DB = acct_oracle.QA3
 CA_AO_DB = acct_oracle.QA3
 
 
-matrix = [ [0] * 4 for i in range(5)]
+matrix = [ [0] * 6 for i in range(5)]
 matrix[0][0] = 'TX'
 matrix[1][0] = 'CO'
 matrix[2][0] = 'KS'
@@ -45,60 +70,13 @@ matrix[4][0] = 'AB'
 warningFlg = False
 mail_msg = "Following contracts have more then 8 hours gap, please check.\n\n"
 
-with UseSqlserverDB(US_MART_DB) as us_mart_cursor:
-    for schema in US_HF_MART_LIST:
-        query = "SELECT MAX(SRC_SNPSHT_DT) FROM " + schema + "_HF_MART.DBO.F_ORDER_ITEM_TRANSACTION WITH(NOLOCK)"
-        result = TSQL.inquery_single_row(query,us_mart_cursor)
+getMartTime(US_MART_DB, US_HF_MART_LIST, 'HF',matrix)
+getMartTime(US_MART_DB, US_CAMPING_MART_LIST, 'Camping', matrix)
+getMartTime(CA_MART_DB, CA_HF_MART_LIST, 'HF', matrix)
 
-        for item in matrix:
-            if item[0] == schema:
-                item[2] = result
-
-with UseSqlserverDB(US_MART_DB) as us_mart_cursor:
-    for schema in US_CAMPING_MART_LIST:
-        query = "SELECT MAX(ORDER_DTM) FROM " + schema + "_CAMPING_MART.DBO.D_ORDER WITH(NOLOCK)"
-        result = TSQL.inquery_single_row(query,us_mart_cursor)
-
-        for item in matrix:
-            if item[0] == schema:
-                item[2] = result
-
-with UseSqlserverDB(CA_MART_DB) as ca_mart_cursor:
-    for schema in CA_HF_MART_LIST:
-        query = "SELECT MAX(SRC_SNPSHT_DT) FROM " + schema + "_HF_MART.DBO.F_ORDER_ITEM_TRANSACTION WITH(NOLOCK)"
-        result = TSQL.inquery_single_row(query,ca_mart_cursor)
-
-        for item in matrix:
-            if item[0] == schema:
-                item[2] = result
-
-
-with UseOracleDB(US_AO_DB) as us_ao_cursor:
-    for schema in US_HF_AO_LIST:
-        query = "SELECT MAX(TRANS_DATE) FROM LIVE_" + schema + ".O_ORD_ITEM_TRANS WHERE TRANS_DATE <  to_date('9999-10-10','yyyy-mm-dd')"
-        result = oracle_tool.inquery_single_row(query,us_ao_cursor)
-
-        for item in matrix:
-            if item[0] == schema:
-                item[1] = result
-
-with UseOracleDB(US_AO_DB) as us_ao_cursor:
-    for schema in US_CAMPING_HF_AO_LIST:
-        query = "SELECT MAX(ORD_DATE) FROM LIVE_" + schema + ".O_ORDER"
-        result = oracle_tool.inquery_single_row(query,us_ao_cursor)
-
-        for item in matrix:
-            if item[0] == schema:
-                item[1] = result
-
-with UseOracleDB(CA_AO_DB) as ca_ao_cursor:
-    for schema in CA_HF_AO_LIST:
-        query = "SELECT MAX(TRANS_DATE) FROM LIVE_" + schema + ". O_ORD_ITEM_TRANS"
-        result = oracle_tool.inquery_single_row(query,ca_ao_cursor)
-
-        for item in matrix:
-            if item[0] == schema:
-                item[1] = result
+getAOTime(US_AO_DB, US_HF_AO_LIST, 'HF', matrix)
+getAOTime(US_AO_DB, US_CAMPING_HF_AO_LIST, 'Camping', matrix)
+getAOTime(CA_AO_DB, CA_HF_AO_LIST, 'HF', matrix)
 
 for item in matrix:
     schema = item[0]
