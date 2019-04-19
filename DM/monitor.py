@@ -21,19 +21,16 @@ def getAOTime():
 def isDelay():
     pass
 
-def sendMail():
-    pass
-
 US_HF_MART_LIST = ('CO','KS','MS')
 US_CAMPING_MART_LIST = ('TX',)
 CA_HF_MART_LIST = ('AB',)
+
 US_HF_AO_LIST = ('CO','KS','MS')
 US_CAMPING_HF_AO_LIST = ('TX',)
 CA_HF_AO_LIST = ('AB',)
 
 US_MART_DB = acct.QA_CO_HF_MART
 CA_MART_DB = acct.QA_AB_HF_MART
-
 US_AO_DB = acct_oracle.QA3
 CA_AO_DB = acct_oracle.QA3
 
@@ -45,6 +42,7 @@ matrix[2][0] = 'KS'
 matrix[3][0] = 'MS'
 matrix[4][0] = 'AB'
 
+warningFlg = False
 mail_msg = "Following contracts have more then 8 hours gap, please check.\n\n"
 
 with UseSqlserverDB(US_MART_DB) as us_mart_cursor:
@@ -77,7 +75,7 @@ with UseSqlserverDB(CA_MART_DB) as ca_mart_cursor:
 
 with UseOracleDB(US_AO_DB) as us_ao_cursor:
     for schema in US_HF_AO_LIST:
-        query = "SELECT MAX(TRANS_DATE) FROM LIVE_" + schema + ".O_ORD_ITEM_TRANS --WHERE TRANS_DATE < '9999-10-10'"
+        query = "SELECT MAX(TRANS_DATE) FROM LIVE_" + schema + ".O_ORD_ITEM_TRANS WHERE TRANS_DATE <  to_date('9999-10-10','yyyy-mm-dd')"
         result = oracle_tool.inquery_single_row(query,us_ao_cursor)
 
         for item in matrix:
@@ -116,11 +114,14 @@ for item in matrix:
 
     if gap_hour > 8 :
 
+        warningFlg = True
+
         mail_msg =  mail_msg + ' \r\n' + schema + " MART's latest datetime is " + str(mart_datetime_str) 
         mail_msg =  mail_msg + ' \r\n' + schema + " AO's latest datetime is " + str(ao_datetime_str) 
 
-#print(mail_msg)
-mail.send_mail(mail_msg)
+if warningFlg:
+    #print(mail_msg)
+    mail.send_mail(mail_msg)
 
 
 

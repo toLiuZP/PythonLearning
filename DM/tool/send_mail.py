@@ -8,12 +8,13 @@ from email.utils import formataddr
 def send_mail(msg):
     sender = 'toliuzp@qq.com' 
     #receivers = ('zongpei.liu@aspiraconnect.com')
-    receivers = ['zongpei.liu@aspiraconnect.com','Tom.Xie@aspiraconnect.com','Gary.Zhou@aspiraconnect.com','Tim.Wang@aspiraconnect.com']
+    #receivers = ['zongpei.liu@aspiraconnect.com','Tom.Xie@aspiraconnect.com','Gary.Zhou@aspiraconnect.com','Tim.Wang@aspiraconnect.com']
+    receivers = ['zongpei.liu@aspiraconnect.com','toliuzp@qq.com']
 
 
     message = MIMEText(msg, 'plain', 'utf-8')
-    #message['From'] = formataddr(["ETL loading Abnormal", sender]) 
-    #message['To'] = formataddr(["", receivers]) 
+    message['From'] = formataddr(["ETL loading Abnormal", sender]) 
+    message['To'] = ','.join(receivers) 
 
     subject = 'Prod ETL loading monitor.'
     message['Subject'] = Header(subject, 'utf-8') 
