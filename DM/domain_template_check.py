@@ -32,96 +32,112 @@
 #         pa.deleted_ind = 0
 # 		order by a.attr_name
 ###
-
+# TODO : Add function only to fullfil the new contract.
 
 import numpy as np
 import pandas as pd
-#import cx_Oracle as oracle
+import cx_Oracle as oracle
 import os
 
-#import conf.acct_oracle as acct_oracle
-#from db_connect.oracle_db import UseOracleDB
-#from tool.df_compare import has_gap
+from openpyxl import Workbook
+from openpyxl import load_workbook
+from openpyxl.writer.excel import ExcelWriter
+import time
 
-#CURRENT_DB = acct_oracle.QA3
-SCHEMA = 'LIVE_CO'
-#SEED_FILE = '.\seed\Domain Data Template.xlsx'
-SEED_FILE = 'DDT.xlsx'
+import conf.acct_oracle as acct_oracle
+from db_connect.oracle_db import UseOracleDB
+from tool.df_compare import has_gap
+import tool.oracle_tool as oracle_tool
+import tool.tool as tool
 
-writer = pd.ExcelWriter('est.xlsx')
-
+CURRENT_DB = acct_oracle.PROD_US
 os.system("")
 
-test_e = pd.read_excel(SEED_FILE)
-df = pd.DataFrame(test_e)
+SEED_FILE = '.\seed\Domain Data Template.xlsx'
+nameTime = time.strftime('%Y%m%d_%H%M%S')
+excelName = tool.file_name('Domain Data Template','xlsx')
+workbook = load_workbook(SEED_FILE)
+sheetnames =workbook.get_sheet_names() 
+query_sheet = workbook.get_sheet_by_name('Checking_Query')
 
-df.index = df.Datasets
-df.loc['Customer_Profile','KS'] = 'X'
-
-df.to_excel(writer,sheet_name = '123')
-writer.save()
-
-pass
-pass
-'''
 with UseOracleDB(CURRENT_DB) as cursor:
 
-    # 1. Verify if C_CUST_HFPROFILE has data. Impact D_CUSTOMER and D_CUSTOMER_ADDRESS
-    has_customer_hfprofile = "SELECT * FROM " + SCHEMA + ".C_CUST_HFPROFILE WHERE ID > 1 AND ROWNUM < 2"
-    cursor.execute(has_customer_hfprofile)
-    row = cursor.fetchall()
-    if len(row) == 0:
-        print("C_CUST_HFPROFILE is empty. Please commentet customer number and birthday")
-    else:
-        print("Please use hfprofile and load customer number and birthday")
+    for sheetname in sheetnames:
+        sheet = workbook.get_sheet_by_name(sheetname)
 
-    # 3. Verify what occupant type this contract has.
+        if sheetname != 'Checking_Query':
+            rows = sheet.rows
+            columns = sheet.columns
 
-    inquery_occupant_sql = "select ID, NAME from " + SCHEMA + ".P_ADMISSION_TYPE where id in (select ADMISSION_TYPE_ID from " + SCHEMA + ".P_ADMISSION_PRD_CAT) order by 1"
+            if sheet['A1'].value == 'Datasets':
+                for col in range(2, sheet.max_column+1, 2):
+                    for row in range(3,sheet.max_row+1):
+                        domain = sheetname
+                        dataset = sheet.cell(row=row,column=1).value
 
-    cursor.execute(inquery_occupant_sql)
-    row = cursor.fetchall()
-
-    if len(row) == 0:
-        print(SCHEMA + "'s occupant type is null.")
-    else:
-        occupant_type_seed = pd.read_excel(SEED_FILE,sheet_name = "P_ADMISSION_PRD_CAT")
-        occupant_type_return = pd.DataFrame(row)
-        has_gap(occupant_type_seed,occupant_type_return,"Occupant type")
-
-    # 4. Verify ticket types
-
-    inquery_ticket_sql = "select ID, NAME from " + SCHEMA + ".P_ADMISSION_TYPE where id in (select ADMISSION_TYPE_ID from " + SCHEMA + ".O_TICKET_QUANTITY) order by 1"
-
-    cursor.execute(inquery_ticket_sql)
-    row = cursor.fetchall()
-
-    if len(row) == 0:
-        print(SCHEMA + "'s ticket type is null.")
-    else:        
-        ticket_type_seed = pd.read_excel(SEED_FILE,sheet_name = "O_TICKET_QUANTITY")
-        ticket_type_return = pd.DataFrame(row)
-        has_gap(ticket_type_seed,ticket_type_return,"ticket type")
-
-    # 5. Verify site attributes.
-
-    inquery_site_attr_sql = "SELECT DISTINCT a.attr_id AS ID, a.attr_name FROM " + SCHEMA + ".p_prd p LEFT JOIN " + SCHEMA + ".p_prd pp on pp.prd_id = p.parent_id and p.prd_rel_type = 3 LEFT JOIN " + SCHEMA + ".p_prd_attr pa ON pa.prd_id = NVL( pp.prd_id, p.prd_id ) LEFT JOIN " + SCHEMA + ".d_attr a ON a.attr_id = pa.attr_id WHERE p.product_cat_id = 3 AND pa.active_ind = 1 AND pa.deleted_ind = 0 order by a.attr_id, a.attr_name"
-
-    cursor.execute(inquery_site_attr_sql)
-    row = cursor.fetchall()
-
-    if len(row) == 0:
-        print(SCHEMA + "'s site attributes is null.")
-    else:
-        site_attr_seed = pd.read_excel(SEED_FILE,sheet_name = "SITE_ATTRIBUTES")
-        site_attr_return = pd.DataFrame(row)
-        has_gap(site_attr_seed,site_attr_return,"Site Attributes")
-'''
-    
-    
-
-
-
-    
-        
-
+                        for query_row in range(1,query_sheet.max_row+1):
+                            if domain == query_sheet.cell(row=query_row,column=1).value and dataset == query_sheet.cell(row=query_row,column=2).value:
+                                query_txt = query_sheet.cell(row=query_row,column=3).value
+                                if str(query_txt).strip() != 'None':
+                                    schema = "LIVE_" + str(sheet.cell(row=1,column=col).value)
+                                    query_txt = str(query_txt).replace('{SOURCE_SCHEMA}',schema)
+                                    has_row = oracle_tool.has_row(query_txt,cursor)
+                                    if has_row:
+                                        sheet.cell(row=row,column=col).value = 'X'
+            elif sheet['A1'].value == 'Domain\nFields':
+                for i in range(3, sheet.max_column+1, 2):
+                    schema = "LIVE_" + str(sheet.cell(row=1,column=i).value)
+                    for j in range(3,sheet.max_row+1):
+                        if sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value in ('Birth Date','Customer Number'):
+                            query = 'SELECT CUST_ID FROM {SOURCE_SCHEMA}.c_cust_hfprofile WHERE CUST_ID > 1 AND ROWNUM = 1'.replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value in ('First Name','Last Name','Middle Name','Salutation','Suffix'):
+                            query = 'SELECT CUST_ID FROM {SOURCE_SCHEMA}.c_cust WHERE ROWNUM = 1'.replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value == 'Customer Deleted':
+                            sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value == 'Home Phone Number':
+                            query = "SELECT cust_id FROM {SOURCE_SCHEMA}.c_cust_phone WHERE typ = 'HOME' AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value == 'Work Phone Number':
+                            query = "SELECT cust_id FROM {SOURCE_SCHEMA}.c_cust_phone WHERE typ = 'WORK' AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value == 'Mobile Phone Number':
+                            query = "SELECT cust_id FROM {SOURCE_SCHEMA}.c_cust_phone WHERE typ = 'CELL' AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value == 'Email':
+                            query = "SELECT cust_id FROM {SOURCE_SCHEMA}.c_cust_phone WHERE typ = 'EMAIL' AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value == 'Agency':
+                            query = "SELECT name_20 FROM {SOURCE_SCHEMA}.D_LOC_HIERARCHY WHERE name_20 IS NOT NULL AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value == 'District':
+                            query = "SELECT name_32 FROM {SOURCE_SCHEMA}.D_LOC_HIERARCHY WHERE name_32 IS NOT NULL AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value == 'Facility':
+                            query = "SELECT name_40 FROM {SOURCE_SCHEMA}.D_LOC_HIERARCHY WHERE name_40 IS NOT NULL AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value == 'Region':
+                            query = "SELECT name_30 FROM {SOURCE_SCHEMA}.D_LOC_HIERARCHY WHERE name_30 IS NOT NULL AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value == 'Project':
+                            query = "SELECT name_35 FROM {SOURCE_SCHEMA}.D_LOC_HIERARCHY WHERE name_35 IS NOT NULL AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value == 'Facility HQ':
+                            query = "SELECT name_39 FROM {SOURCE_SCHEMA}.D_LOC_HIERARCHY WHERE name_39 IS NOT NULL AND ROWNUM = 1".replace('{SOURCE_SCHEMA}',schema)
+                            if oracle_tool.has_row(query,cursor):
+                                sheet.cell(row=j,column=i).value = 'X'
+                        elif sheetname == 'Location' and sheet.cell(row=j,column=1).value in ('Location Category','Location Deleted'):
+                            sheet.cell(row=j,column=i).value = 'X'
+workbook.save(excelName)  

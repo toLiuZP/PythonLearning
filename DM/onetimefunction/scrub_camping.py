@@ -1,27 +1,26 @@
+##
+# scrub data for sales demo db
+##
+
 import random
 
-from tool.liuzp_tool import clock 
+from tool.tool import clock 
 import conf.acct
 import db_connect.db_operator as db_operator
 
-
 def replaceTexas(inputString:str):
-
     scrubbedString = inputString.replace('Texas','Aspira').replace('\'',' ').replace('TPWD','ASPIRA').replace('TX','ASPIRA').replace('TSPP','ASPIRA').replace('Full-Texas','ASPIRA').replace('tx-','ASPIRA-').replace('_TX','_ASPIRA').replace('sftx-','ASPIRA-').replace('tx_','ASPIRA-').replace('Tx','ASPIRA').replace('tpwd','ASPIRA')
     scrubbedString = scrubbedString.replace('Tpwd','ASPIRA').replace('tspp','ASPIRA').replace('Tspp','ASPIRA').replace('texas','ASPIRA').replace('tX','ASPIRA').replace('TPWd','ASPIRA').replace('tx','ASPIRA').replace('TEXAS','ASPIRA').replace('TwPd','ASPIRA')
     return scrubbedString
 
 @clock
 def replacePaymanetAllocationDiscountNM(acct:dict):
-
     print('\n' + "Start to scrub F_PAYMENT_ALLOCATION")
-
     query = "SELECT MART_SOURCE_ID, DISCOUNT_NM FROM F_PAYMENT_ALLOCATION WITH(NOLOCK) WHERE lower(DISCOUNT_NM) LIKE '%texas%' OR lower(DISCOUNT_NM) LIKE '%tpwd%' OR lower(DISCOUNT_NM) LIKE '%tspp%'"
     result = db_operator.query_db(query,acct)
     updateSQL = ""
 
     for item in result:
-        
         awoID = item[0]
         discountName = item[1]
         if discountName !=None:
@@ -35,9 +34,7 @@ def replacePaymanetAllocationDiscountNM(acct:dict):
 
 @clock
 def replaceProduct(acct:dict):
-
     print('\n' + "Start to scrub D_PRODUCT")
-
     query = "SELECT MART_SOURCE_ID, PRODUCT_NM, PRODUCT_DSC FROM D_PRODUCT WITH(NOLOCK) WHERE lower(PRODUCT_NM) LIKE '%texas%' OR lower(PRODUCT_DSC) LIKE '%texas%' OR lower(PRODUCT_NM) LIKE '%tpwd%' OR lower(PRODUCT_NM) LIKE '%tpwd%'"
     result = db_operator.query_db(query,acct)
     updateSQL = ""
@@ -58,61 +55,14 @@ def replaceProduct(acct:dict):
     db_operator.update_db(updateSQL,acct)
     print("Scrubbed " + str(len(result)) + ' rows')
 
-'''
-def replaceStoreAddressKey():
-
-    queryStore = "SELECT AWO_ID FROM D_STORE WITH(NOLOCK) WHERE AWO_ID > 0"
-
-    store_result = db_operator.query_db(queryStore)
-
-    updateSQL = ""
-
-    for item in store_result:
-        
-        awo_id = item[0]
-
-        addressKey = str(random.randint(0,4000000))
-
-        tempSQL = "UPDATE D_STORE SET PHYS_ADDRESS_KEY = " + addressKey + ", MAIL_ADDRESS_KEY = " + addressKey + ", AWO_PHYS_ADDRESS_ID = (SELECT AWO_ID FROM D_ADDRESS WITH(NOLOCK) WHERE D_ADDRESS_KEY = " + addressKey + "),  AWO_MAIL_ADDRESS_ID = (SELECT AWO_ID FROM D_ADDRESS WITH(NOLOCK) WHERE D_ADDRESS_KEY = " + addressKey + ") WHERE AWO_ID = " + str(awo_id) + ";"
-        updateSQL = updateSQL + tempSQL
-
-    db_operator.update_db(updateSQL)
-    print("Updated Store Address Keys")
-'''
-
-'''
-def replaceStore():
-
-    queryStore = "SELECT AWO_ID, STORE_NM, VENDOR_NM FROM D_STORE WITH(NOLOCK) WHERE AWO_ID > 0"
-
-    store_result = db_operator.query_db(queryStore)
-
-    updateSQL = ""
-
-    for item in store_result:
-        
-        awo_id = item[0]
-        store_nm = item[1].replace('WAL-MART','Aspira').replace('\'',' ')
-        vendor_nm = item[2].replace('WAL-MART','Aspira').replace('\'',' ')
-
-        tempSQL = "UPDATE D_STORE SET STORE_NM = \'" + store_nm + "\', VENDOR_NM = \'" + vendor_nm + "\' WHERE AWO_ID = " +str(awo_id) + ";"
-        updateSQL = updateSQL + tempSQL
-
-    db_operator.update_db(updateSQL)
-    print("Updated Store name and Vendor Name")
-'''
-
 @clock
 def replaceLocation(acct:dict):
-
     print('\n' + "Start to scrub D_LOCATION")
-
     query = "SELECT [MART_SOURCE_ID],[AGENCY_NM] FROM D_LOCATION WITH(NOLOCK) WHERE [LOCATION_KEY] > 0"
     result = db_operator.query_db(query,acct)
     updateSQL = ""
 
     for item in result:
-        
         awoID = item[0]
         agencyName = item[1]
         if agencyName !=None:
@@ -129,15 +79,12 @@ def replaceLocation(acct:dict):
 
 @clock
 def replacePass(acct:dict):
-
     print('\n' + "Start to scrub D_PASS")
-
     updateSQL = "UPDATE D_PASS SET PASS_TYPE_CD = 'Aspira', PASS_TYPE_NM = 'Aspira Pass', PASS_TYPE_DSC = 'Aspira Pass' WHERE [PASS_TYPE_CD] = 'TSPP'"
     db_operator.update_db(updateSQL,acct)
 
 @clock
 def replaceSupplier(acct:dict):
-
     print('\n' + "Start to scrub D_SUPPLIER.SUPPLIER_NM / SUPPLIER_DSC")
 
     query = "SELECT [MART_SOURCE_ID],[SUPPLIER_NM], [SUPPLIER_DSC] FROM D_SUPPLIER WITH(NOLOCK)   WHERE lower([SUPPLIER_NM]) LIKE '%texas%' OR lower([SUPPLIER_NM]) LIKE '%tpwd%' OR lower([SUPPLIER_NM]) LIKE '%tspp%' OR lower([SUPPLIER_NM]) LIKE '%tx%'   OR lower([SUPPLIER_DSC]) LIKE '%texas%' OR lower([SUPPLIER_DSC]) LIKE '%tpwd%' OR lower([SUPPLIER_DSC]) LIKE '%tspp%' OR lower([SUPPLIER_DSC]) LIKE '%tx%'"
@@ -145,7 +92,6 @@ def replaceSupplier(acct:dict):
     updateSQL = ""
 
     for item in result:
-        
         awoID = item[0]
         supplierName = item[1]
         supplierDESC = item[2]
@@ -162,7 +108,6 @@ def replaceSupplier(acct:dict):
 
 @clock
 def replaceCustomerAddressKey(acct:dict):
-
     print('\n' + "Start to scrub D_CUSTOMER")
 
     query = "SELECT customer.MART_SOURCE_ID FROM D_CUSTOMER customer WITH(NOLOCK) INNER JOIN D_CUSTOMER_ADDRESS addr WITH(NOLOCK) ON addr.CUSTOMER_ADDRESS_KEY = customer.CUSTOMER_ADDRESS_KEY WHERE addr.STATE_CD = 'TX' AND customer.CUSTOMER_ADDRESS_KEY > 0"

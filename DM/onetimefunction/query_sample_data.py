@@ -1,3 +1,7 @@
+##
+# query sample data from source
+##
+
 import datetime
 import re
 import os

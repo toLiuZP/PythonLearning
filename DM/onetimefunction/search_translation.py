@@ -1,13 +1,15 @@
+##
+# query sample data from source
+##
 import pandas as pd
 import numpy as np
 import os
 
-os.system("")
-
 import conf.acct as acct
-from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
+from db_connect.sqlserver_db import UseSqlserverDB
 import tool.query_metadata as query_metadata
 
+os.system("")
 TARGET_DB = acct.PROD_CO_HF_MART
 TABLE_LIST = ['VW_DRAW_QUOTA']
 
