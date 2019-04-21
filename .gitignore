@@ -2,3 +2,5 @@ DM/conf/acct.py
 DM/conf/acct_oracle.py
 DM/output/
 DM/tool/send_mail.py
+DM/conf/acct_af.py
+DM/conf/acct_af_source.py
