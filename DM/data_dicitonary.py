@@ -1,15 +1,13 @@
 ###
-# 1. Verify if C_CUST_HFPROFILE has data. Impact D_CUSTOMER and D_CUSTOMER_ADDRESS
+# Genearte data dictionary based on metadata and sample value
 ###
-
 
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
-from openpyxl.writer.excel import ExcelWriter
+#from openpyxl.writer.excel import ExcelWriter
 
-
-from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
+from db_connect.sqlserver_db import UseSqlserverDB
 import conf.acct as acct
 import tool.TSQL_function as TSQL_function
 import tool.tool as tool

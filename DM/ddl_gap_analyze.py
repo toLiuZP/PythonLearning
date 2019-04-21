@@ -1,3 +1,7 @@
+###
+# TODO: Need to update to keep the format of spreadsheet.
+###
+
 import pandas as pd
 import datetime
 import re
@@ -5,9 +9,8 @@ import re
 import conf.acct as acct
 import db_connect.db_operator as DB
 
-
 def merge(raw1, raw2, contract, writer, raw3='none'):
-
+    # TODO: update rawx to Env name
     raw1 = raw1.fillna('null')
     raw2 = raw2.fillna('null')
 
@@ -31,6 +34,7 @@ def merge(raw1, raw2, contract, writer, raw3='none'):
 if __name__ == '__main__':
 
     query = "SELECT table_schema, table_name, column_name, ordinal_position , data_type, COALESCE(character_maximum_length,numeric_precision,datetime_precision) data_length, numeric_scale, is_nullable FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name NOT LIKE 'MSpeer_%' AND table_name NOT LIKE 'MSpub_%' AND table_name NOT LIKE 'syncobj_0x%' AND table_name NOT LIKE 'sysarticle%' AND table_name NOT LIKE 'sysextendedarticlesview' AND table_name NOT LIKE 'syspublications' AND table_name <> 'sysreplservers' AND table_name <> 'sysreplservers' AND table_name <> 'sysschemaarticles' AND table_name <> 'syssubscriptions' AND table_name <> 'systranschemas' ORDER BY table_name"
+    # TODO: Update to use the file name function.
     writer = pd.ExcelWriter('.\output\gap' + re.sub(r'[^0-9]','',str(datetime.datetime.now())) + '.xlsx')
     
     raw1 = DB.query_db_pandas(query, acct.QA_CO_HF_MART)
