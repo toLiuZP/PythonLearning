@@ -57,26 +57,26 @@ CA_HF_AO_LIST = ('AB',)
 US_MART_DB = acct.PROD_CO_HF_MART
 CA_MART_DB = acct.PROD_AB_HF_MART
 US_AO_DB = acct_oracle.PROD_US
-CA_AO_DB = acct_oracle.PROD_CA_DSN
+CA_AO_DB = acct_oracle.PROD_CDC_CA
 
 
-matrix = [ [0] * 6 for i in range(4)]
+matrix = [ [0] * 6 for i in range(5)]
 matrix[0][0] = 'TX'
 matrix[1][0] = 'CO'
 matrix[2][0] = 'KS'
 matrix[3][0] = 'MS'
-#matrix[4][0] = 'AB'
+matrix[4][0] = 'AB'
 
 warningFlg = False
 mail_msg = "Following contracts have more then 8 hours gap, please check.\n\n"
 
 getMartTime(US_MART_DB, US_HF_MART_LIST, 'HF',matrix)
 getMartTime(US_MART_DB, US_CAMPING_MART_LIST, 'Camping', matrix)
-#getMartTime(CA_MART_DB, CA_HF_MART_LIST, 'HF', matrix)
+getMartTime(CA_MART_DB, CA_HF_MART_LIST, 'HF', matrix)
 
 getAOTime(US_AO_DB, US_HF_AO_LIST, 'HF', matrix)
 getAOTime(US_AO_DB, US_CAMPING_HF_AO_LIST, 'Camping', matrix)
-#getAOTime(CA_AO_DB, CA_HF_AO_LIST, 'HF', matrix)
+getAOTime(CA_AO_DB, CA_HF_AO_LIST, 'HF', matrix)
 
 for item in matrix:
     schema = item[0]
@@ -98,7 +98,10 @@ for item in matrix:
         mail_msg =  mail_msg + ' \r\n' + schema + " AO's latest datetime is " + str(ao_datetime_str) 
 
 if warningFlg:
-    print(mail_msg)
+    #print(mail_msg)
+    mail.send_mail(mail_msg)
+else:
+    mail_msg = "Everything is good"
     mail.send_mail(mail_msg)
 
 

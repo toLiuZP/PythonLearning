@@ -11,7 +11,7 @@ def has_row(query, cursor):
         return True
 
 def inquery_single_row(query, cursor):
-
+    print(query)
     cursor.execute(query)
     result = cursor.fetchall()
     if len(result) > 0:

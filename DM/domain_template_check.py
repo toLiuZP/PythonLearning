@@ -32,7 +32,6 @@
 #         pa.deleted_ind = 0
 # 		order by a.attr_name
 ###
-# TODO : Add function only to fullfil the new contract.
 
 import numpy as np
 import pandas as pd
@@ -53,7 +52,7 @@ import tool.tool as tool
 CURRENT_DB = acct_oracle.PROD_US
 os.system("")
 
-SEED_FILE = '.\seed\Domain Data Template.xlsx'
+SEED_FILE = ".\seed\Domain Data Template.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = tool.file_name('Domain Data Template','xlsx')
 workbook = load_workbook(SEED_FILE)
@@ -73,7 +72,7 @@ with UseOracleDB(CURRENT_DB) as cursor:
 
             if sheet['A1'].value == 'Datasets':
                 for col in range(2, sheet.max_column+1, 2):
-                    if (len(check_list) == 0) or (len(check_list) > 0 and sheet.cell(row=1,column=col) in check_list):
+                    if (len(check_list) == 0) or (len(check_list) > 0 and sheet.cell(row=1,column=col).value in check_list):
                         for row in range(3,sheet.max_row+1):
                             domain = sheetname
                             dataset = sheet.cell(row=row,column=1).value
@@ -90,7 +89,7 @@ with UseOracleDB(CURRENT_DB) as cursor:
 
             elif sheet['A1'].value == 'Domain\nFields':
                 for i in range(3, sheet.max_column+1, 2):
-                    if (len(check_list) == 0) or (len(check_list) > 0 and sheet.cell(row=1,column=i) in check_list):
+                    if (len(check_list) == 0) or (len(check_list) > 0 and sheet.cell(row=1,column=i).value in check_list):
                         schema = "LIVE_" + str(sheet.cell(row=1,column=i).value)
                         for j in range(3,sheet.max_row+1):
                             if sheetname == 'Customer_Profile' and sheet.cell(row=j,column=1).value in ('Birth Date','Customer Number'):
