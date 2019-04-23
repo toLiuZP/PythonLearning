@@ -20,7 +20,7 @@ excelName = file_name('DDL_GAP','xlsx')
 workbook = load_workbook(SEED_FILE)
 ddl_sheet = workbook.get_sheet_by_name('DDL')
 
-check_list = ['CO_HF_MART','KS_HF_MART']
+check_list = ['CO_HF_MART','KS_HF_MART','MS_HF_MART','TX_CAMPING_MART']
 
 def merge_ddl(dev, qa, uat, sheet, prod='none'):
 
