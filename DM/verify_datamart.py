@@ -4,6 +4,9 @@
 # validate if any key is all -1 value or any column is all null
 # check if there is -1 row in D_ and R_
 ##
+# TODO: change the verify for D_IDENTIFIER has duplicate data on AWO_ID, please check. SELECT * FROM D_IDENTIFIER WHERE CUR_REC_IND = 1 AND AWO_ID = 2545081
+# TODO: change the verify for D_ATTRIBS has duplicate data on AWO_ID, please check. SELECT * FROM D_ATTRIBS WHERE CUR_REC_IND = 1 AND AWO_ID = 101
+# TODO: add the AO_XXX_DTM veryfy, compare to XXX_DTM
 import pandas as pd
 import numpy as np
 import os
