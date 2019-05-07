@@ -70,8 +70,8 @@ matrix[4][0] = 'AB'
 warningFlg = False
 mail_msg = "Following contracts have more then 8 hours gap, please check.\n\n"
 
-msg = "Verify start"
-mail.send_mail(msg)
+#msg = "Verify start"
+#mail.send_mail(msg)
 
 getMartTime(US_MART_DB, US_HF_MART_LIST, 'HF',matrix)
 getMartTime(US_MART_DB, US_CAMPING_MART_LIST, 'Camping', matrix)
@@ -103,10 +103,11 @@ for item in matrix:
 if warningFlg:
     #print(mail_msg)
     mail.send_mail(mail_msg)
-else:
+'''else:
     mail_msg = "Everything is good"
     print(mail_msg)
     mail.send_mail(mail_msg)
+    '''
 
 
 

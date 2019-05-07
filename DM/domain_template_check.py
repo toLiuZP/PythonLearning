@@ -59,7 +59,7 @@ workbook = load_workbook(SEED_FILE)
 sheetnames =workbook.get_sheet_names() 
 query_sheet = workbook.get_sheet_by_name('Checking_Query')
 
-check_list = ['MS']
+check_list = []
 
 with UseOracleDB(CURRENT_DB) as cursor:
 
@@ -86,6 +86,10 @@ with UseOracleDB(CURRENT_DB) as cursor:
                                         has_row = oracle_tool.has_row(query_txt,cursor)
                                         if has_row:
                                             sheet.cell(row=row,column=col).value = 'X'
+                                if sheetname == 'Customer Activity' and sheet.cell(row=row,column=1).value in ('User Created','User Modified'):
+                                    sheet.cell(row=row,column=col).value = 'X'
+                                if sheetname == 'Financial' and sheet.cell(row=row,column=1).value in ('Payment User'):
+                                    sheet.cell(row=row,column=col).value = 'X'
 
             elif sheet['A1'].value == 'Domain\nFields':
                 for i in range(3, sheet.max_column+1, 2):
