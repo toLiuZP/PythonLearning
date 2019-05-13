@@ -37,12 +37,12 @@ if __name__ == '__main__':
     # TODO: Update to use the file name function.
     writer = pd.ExcelWriter('.\output\gap' + re.sub(r'[^0-9]','',str(datetime.datetime.now())) + '.xlsx')
     
-    raw1 = DB.query_db_pandas(query, acct.QA_CO_HF_MART)
-    raw2 = DB.query_db_pandas(query, acct.UAT_CO_HF_MART)
-    raw3 = DB.query_db_pandas(query, acct.PROD_CO_HF_MART)
+    raw1 = DB.query_db_pandas(query, acct.QA_KS_CAMPING_MART)
+    raw2 = DB.query_db_pandas(query, acct.UAT_KS_CAMPING_MART)
+    #raw3 = DB.query_db_pandas(query, acct.PROD_CO_HF_MART)
 
-    merge(raw1,raw2,'CO',writer,raw3)
-    #merge(raw1,raw2,'KS',writer)
+    #merge(raw1,raw2,'CO',writer,raw3)
+    merge(raw1,raw2,'KS',writer)
     
 
 

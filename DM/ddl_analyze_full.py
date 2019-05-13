@@ -21,8 +21,8 @@ workbook = load_workbook(SEED_FILE)
 ddl_sheet = workbook.get_sheet_by_name('DDL')
 view_sheet = workbook.get_sheet_by_name('VIEW')
 
-#check_list = ['CO_HF_MART','KS_HF_MART','MS_HF_MART','TX_CAMPING_MART']
-check_list = ['CO_HF_MART']
+check_list = ['CO_HF_MART','KS_HF_MART','MS_HF_MART','TX_CAMPING_MART']
+#check_list = ['CO_HF_MART']
 
 def merge_ddl(dev, qa, uat, sheet, prod='none'):
 
@@ -75,9 +75,9 @@ def merge_view(dev, qa, uat, sheet, prod='none'):
 
     if isinstance(prod, str):
         for index, col in gap.iterrows():
-            col[2] = str(col[2]).replace('[','').replace(']','').replace('\r\n','')
-            col[3] = str(col[3]).replace('[','').replace(']','').replace('\r\n','')
-            col[4] = str(col[4]).replace('[','').replace(']','').replace('\r\n','')
+            col[2] = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+            col[3] = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+            col[4] = str(col[4]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
             if col[2] == col[3] == col[4]:
                 gap = gap.drop(index)
                 
@@ -85,11 +85,11 @@ def merge_view(dev, qa, uat, sheet, prod='none'):
         prod = prod.fillna('null')
         gap = pd.merge(gap, prod, on = ['Type','name'], how='outer')
         for index, col in gap.iterrows():
-            col[2] = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','')
-            col[3] = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','')
-            col[4] = str(col[4]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','')
-            col[5] = str(col[5]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','')
-            if  col[2] == col[3] == col[4] == col[5]:
+            col2 = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+            col3 = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+            col4 = str(col[4]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+            col5 = str(col[5]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+            if  col2 == col3 == col4 == col5:
                 gap = gap.drop(index)
 
     gap = gap.fillna('null')
@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     # US contracts:
     for contract in check_list:
-        #check_ddl(workbook,ddl_sheet,contract)
+        check_ddl(workbook,ddl_sheet,contract)
         check_view(workbook,view_sheet,contract)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))
