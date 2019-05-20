@@ -3,6 +3,7 @@
 import timeit
 import os
 import time
+import sys
 
 os.system("")
 
@@ -21,3 +22,4 @@ def file_name(file_name:str,suffix:str)->str:
     nameTime = time.strftime('%Y%m%d%H%M%S')
     excelName = '.\output\\' + file_name + '_' + nameTime + '.' + suffix
     return excelName
+

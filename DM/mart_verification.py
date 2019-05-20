@@ -17,17 +17,17 @@ os.system("")
 
 import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB
+import tool.tool as tool
 
-TARGET_DB = acct.UAT_CO_HF_MART
+TARGET_DB = acct.UAT_KS_CAMPING_MART
 
 def search_empty_tables(cursor) -> list:
 
-    print("\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n\n")
+    print("\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
     generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (name NOT LIKE 'MSpeer_%' AND name NOT LIKE 'MSpub_%' AND name NOT LIKE 'syncobj_0x%' AND name NOT LIKE 'sysarticle%' AND name NOT LIKE 'sysextendedarticlesview' AND name NOT LIKE 'syspublications' AND name <> 'sysreplservers' AND name <> 'sysreplservers' AND name <> 'sysschemaarticles' AND name <> 'syssubscriptions' AND name <> 'systranschemas' AND name NOT LIKE 'O_LEGACY_%' AND name NOT LIKE 'QUEST_%' and name <> 'D_AUDIT_LOG') ORDER BY name"
     cursor.execute(generate_empty_validation_sql)
     rs_table_list = cursor.fetchall()
-
     not_empty_list = []
 
     for item in rs_table_list:
@@ -49,7 +49,7 @@ def search_empty_tables(cursor) -> list:
 
 def check_minus_one_rows(cursor, checking_list):
 
-    print("\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n\n")
+    print("\n\n\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
     minus_one_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (NAME LIKE 'D_%' OR NAME LIKE 'R_%') ORDER BY NAME"
     cursor.execute(minus_one_sql)
@@ -62,10 +62,8 @@ def check_minus_one_rows(cursor, checking_list):
         if table_name in checking_list:
             cursor.execute(sql_text)
             rs_minus_one = cursor.fetchall()
-
             if rs_minus_one[0][0] != -1:
-                print ("\033[32m" + table_name + "\033[0m does not have -1 key row, please check by using:\n\033[33m" + sql_text+"\033[0m")
-
+                print ("\033[32m" + table_name + "\033[0m does not have -1 key row, please check.") #by using:\n\033[33m" + sql_text+"\033[0m")
 
 def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name):
 
@@ -94,18 +92,16 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
         if len(rs_has_duplicate) > 0:
             print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
                 
-
-
 def check_data(cursor, table_list):
-
     """
     " 1. Validate if column is null.
     " 2. If columns is key, validate if it's all -1.
     " 3. If it's MART_SOURCE_ID, validate if it has duplicates.
     """
+    
     check_minus_one_rows(cursor, table_list)
 
-    print("\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n\n")
+    print("\n\n\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
     generate_raw_list = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' ORDER BY table_name, ordinal_position"
     cursor.execute(generate_raw_list)
@@ -117,15 +113,18 @@ def check_data(cursor, table_list):
     has_current_record_ind = False
     old_table_name = ""
     table_count = 0
+    row_count = 0
     pk_column = ""
 
     for item in rs_list:
         table_name = item[0]
         column_name = item[1]
 
-        #print("Checking "+ str(table_name) + "." + str(column_name))
-
         if table_name in table_list:
+
+            #print(" checking on "+table_name+"."+column_name+"\n")
+            if row_count == 0:
+                pk_column = column_name
             if old_table_name != table_name:
                 pk_column = column_name
                 if table_count != 0:
@@ -137,14 +136,14 @@ def check_data(cursor, table_list):
                 has_cur_rec_ind = False
                 has_current_record_ind = False
                 old_table_name = table_name
-            
-            ## TODO: should exclude the -1 row
-            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE pk_column > 0 AND " + column_name + " IS NOT NULL"
+
+            # checking if column values are all NULL except the -1 one
+            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " IS NOT NULL"
             cursor.execute(null_check_sql)
             rs_has_data = cursor.fetchall()
 
             if len(rs_has_data) == 0:
-                print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty, please check.")
+                print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty.")
             elif str(column_name) == "MART_SOURCE_ID" and str(table_name).startswith("B_") == False:
                 has_mart_source_id = True
             elif str(column_name) == "AWO_ID" and str(table_name).startswith("B_") == False:
@@ -159,9 +158,16 @@ def check_data(cursor, table_list):
                 rs_is_key_minus_one = cursor.fetchall()
                 if len(rs_is_key_minus_one) == 0:
                     print ("\033[32m" + table_name + "." + column_name + "\033[0m is all -1, please verify.")
-              
-    check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name)
+                
+                # for KEYs, check if there is NULL value, which should NOT
+                null_value_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " IS NULL" 
+                cursor.execute(null_value_check_sql)
+                rs_null_check = cursor.fetchall()
+                if len(rs_null_check) > 0:
+                    print ("\033[32m" + table_name + "." + column_name + "\033[0m has NULL value, please verify.")
+        row_count += 1
 
+    check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name)
     return table_count
 
 if __name__ == '__main__':
@@ -169,7 +175,8 @@ if __name__ == '__main__':
     with UseSqlserverDB(TARGET_DB) as cursor:
         not_empty_list = search_empty_tables(cursor)
         table_count = check_data(cursor, not_empty_list)
-        print("\n\n"+str(table_count)+" tables verified.")
+        
+        print("\n\n"+str(table_count)+" none-empty tables verified.")
 
 
         
