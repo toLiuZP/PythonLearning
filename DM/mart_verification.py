@@ -19,7 +19,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB
 import tool.tool as tool
 
-TARGET_DB = acct.UAT_KS_CAMPING_MART
+TARGET_DB = acct.DEV_NJ_HF_MART
 
 def search_empty_tables(cursor) -> list:
 
@@ -51,7 +51,7 @@ def check_minus_one_rows(cursor, checking_list):
 
     print("\n\n\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
-    minus_one_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (NAME LIKE 'D_%' OR NAME LIKE 'R_%') ORDER BY NAME"
+    minus_one_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (NAME LIKE 'D[_]%' OR NAME LIKE 'R[_]%') ORDER BY NAME"
     cursor.execute(minus_one_sql)
     rs_table_list = cursor.fetchall()
 
@@ -72,25 +72,25 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
         cursor.execute(duplicate_check_sql)
         rs_has_duplicate = cursor.fetchall()
         if len(rs_has_duplicate) > 0:
-            print ("\n\033[31m" + old_table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<\033[33mSELECT * FROM " + old_table_name + " WHERE MART_SOURCE_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m>>\n")
+            print ("\n\033[31m" + old_table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + old_table_name + " WHERE MART_SOURCE_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m  >>\n")
     if has_awo_id == True and has_cur_rec_ind == True:
         duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
         cursor.execute(duplicate_check_sql)
         rs_has_duplicate = cursor.fetchall()
         if len(rs_has_duplicate) > 0:
-            print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE CUR_REC_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+            print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please chec by \n <<  \033[33mSELECT * FROM " + old_table_name + " WHERE CUR_REC_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m  >>\n")
     if has_awo_id == True and has_current_record_ind == True:
         duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
         cursor.execute(duplicate_check_sql)
         rs_has_duplicate = cursor.fetchall()
         if len(rs_has_duplicate) > 0:
-            print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+            print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check by \n <<  \033[33mSELECT * FROM " + old_table_name + " WHERE CURRENT_RECORD_IND = 1 AND AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m  >>\n")
     elif has_awo_id == True and has_current_record_ind == False and has_cur_rec_ind == False:
         duplicate_check_sql = "SELECT AWO_ID FROM " + old_table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
         cursor.execute(duplicate_check_sql)
         rs_has_duplicate = cursor.fetchall()
         if len(rs_has_duplicate) > 0:
-            print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check. \033[33mSELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m\n")
+            print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check by \n <<  \033[33mSELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m  >>\n")
                 
 def check_data(cursor, table_list):
     """
@@ -157,14 +157,14 @@ def check_data(cursor, table_list):
                 cursor.execute(key_check_sql)
                 rs_is_key_minus_one = cursor.fetchall()
                 if len(rs_is_key_minus_one) == 0:
-                    print ("\033[32m" + table_name + "." + column_name + "\033[0m is all -1, please verify.")
+                    print ("\033[32m" + table_name + "." + column_name + "\033[0m \033[33mis all -1, please verify.\033[0m")
                 
                 # for KEYs, check if there is NULL value, which should NOT
                 null_value_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " IS NULL" 
                 cursor.execute(null_value_check_sql)
                 rs_null_check = cursor.fetchall()
                 if len(rs_null_check) > 0:
-                    print ("\033[32m" + table_name + "." + column_name + "\033[0m has NULL value, please verify.")
+                    print ("\033[32m" + table_name + "." + column_name + "\033[0m has \033[22mNULL\033[0m value, please verify.")
         row_count += 1
 
     check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name)

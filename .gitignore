@@ -4,3 +4,4 @@ DM/output/
 DM/tool/send_mail.py
 DM/conf/acct_af.py
 DM/conf/acct_af_source.py
+DM/seed/gen.sql

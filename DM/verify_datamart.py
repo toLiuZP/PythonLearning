@@ -16,7 +16,7 @@ os.system("")
 import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB
 
-TARGET_DB = acct.UAT_KS_CAMPING_MART
+TARGET_DB = acct.DEV_NJ_HF_MART
 
 def search_empty_tables(cursor) -> list:
 
