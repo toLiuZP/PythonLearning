@@ -118,7 +118,7 @@ for line in lines:
                 rollback_sql += gen_drop_column(table_nm,column_nm)
                 #print(table_nm+"."+column_nm)
         if line.startswith("DROP COLUMN") or line.startswith("ALTER COLUMN"):
-            print("Need manually handle: "+ orignal_sql)
+            print("Need manually handle: \033[32m"+ orignal_sql+"\033[0m")
     else:
         rest_sql += line + "\n"
 
