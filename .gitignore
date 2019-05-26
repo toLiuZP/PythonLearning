@@ -5,3 +5,5 @@ DM/tool/send_mail.py
 DM/conf/acct_af.py
 DM/conf/acct_af_source.py
 DM/seed/gen.sql
+.DS_Store
+DM/tool/__pycache__/__init__.cpython-36.pyc
