@@ -23,3 +23,13 @@ def file_name(file_name:str,suffix:str)->str:
     excelName = '.\output\\' + file_name + '_' + nameTime + '.' + suffix
     return excelName
 
+def logger(func):
+    def wrapper(*args, **kw):
+        print("\nStart \033[36m=== {} ===\033[0m\n\n".format(func.__name__))
+
+        return func(*args, **kw)
+
+        print("\nCompleted \033[36m=== {} ===\033[0m\n\n".format(func.__name__))
+        
+
+    return wrapper

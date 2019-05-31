@@ -21,9 +21,9 @@ import tool.tool as tool
 
 TARGET_DB = acct.DEV_NJ_HF_MART
 
+@tool.logger
 def search_empty_tables(cursor) -> list:
 
-    print("\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
     generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (name NOT LIKE 'MSpeer_%' AND name NOT LIKE 'MSpub_%' AND name NOT LIKE 'syncobj_0x%' AND name NOT LIKE 'sysarticle%' AND name NOT LIKE 'sysextendedarticlesview' AND name NOT LIKE 'syspublications' AND name <> 'sysreplservers' AND name <> 'sysreplservers' AND name <> 'sysschemaarticles' AND name <> 'syssubscriptions' AND name <> 'systranschemas' AND name NOT LIKE 'O_LEGACY_%' AND name NOT LIKE 'QUEST_%' and name <> 'D_AUDIT_LOG') ORDER BY name"
     cursor.execute(generate_empty_validation_sql)
@@ -47,9 +47,10 @@ def search_empty_tables(cursor) -> list:
 
     return not_empty_list
 
+@tool.logger
 def check_minus_one_rows(cursor, checking_list):
 
-    print("\n\n\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
+    #print("\n\n\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
     minus_one_sql = "SELECT NAME, 'SELECT TOP 1 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (NAME LIKE 'D[_]%' OR NAME LIKE 'R[_]%') ORDER BY NAME"
     cursor.execute(minus_one_sql)
