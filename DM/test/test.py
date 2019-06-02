@@ -13,6 +13,8 @@ start = time.time()
 cost = time.time() - start
 print(cost)
 print('%s used [%0.8fs]' % ("test", cost))
+
+print(time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()))
 '''
 if __name__ == "__main__":
 

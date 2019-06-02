@@ -22,7 +22,7 @@ def file_name(file_name:str,suffix:str)->str:
 
 def logger(func):
     def wrapper(*args, **kw):
-        print("\nStart \033[36m=== {} ===\033[0m\n\n".format(func.__name__))
+        print("\n[INFO]  Start \033[36m=== {} ===\033[0m at {} \n\n".format(func.__name__, time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())))
         return func(*args, **kw)
-        print("\nCompleted \033[36m=== {} ===\033[0m\n\n".format(func.__name__))
+        print("\n[INFO]  Completed \033[36m=== {} ===\033[0m at {} \n\n".format(func.__name__, time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())))
     return wrapper
