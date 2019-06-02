@@ -4,10 +4,16 @@ from pandas import DataFrame
 import pandas as pd
 import numpy as np
 import os
+import time
 
 os.system("")
 
 
+start = time.time()
+cost = time.time() - start
+print(cost)
+print('%s used [%0.8fs]' % ("test", cost))
+'''
 if __name__ == "__main__":
 
     name = "test"
@@ -17,7 +23,7 @@ if __name__ == "__main__":
 
     print("[KEY: \033[31m{}\033[0m, value: {} ] only exists in target schema.".format(name,key))
 
-    '''34
+    34
 
     df = pd.read_excel("test.xlsx")
     #df.loc['Row_sum'] = df.apply(lambda x: x.sum())

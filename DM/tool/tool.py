@@ -8,14 +8,11 @@ import sys
 os.system("")
 
 def clock(func):
-    def clocked(*args):
-        t0 = timeit.default_timer()
-        result = func(*args)
-        elapsed = timeit.default_timer() - t0
-        name = func.__name__
-        ##arg_str = ', '.join(repr(arg) for arg in args)
-        print('%s used [%0.8fs]' % (name, elapsed))
-        return result
+    def clocked(*args,**kw):
+        start = time.time()
+        return func(*args, **kw)
+        cost = time.time() - start
+        print('%s used [%0.8fs]' % (func.__name__, cost))
     return clocked
 
 def file_name(file_name:str,suffix:str)->str:
@@ -26,10 +23,6 @@ def file_name(file_name:str,suffix:str)->str:
 def logger(func):
     def wrapper(*args, **kw):
         print("\nStart \033[36m=== {} ===\033[0m\n\n".format(func.__name__))
-
         return func(*args, **kw)
-
         print("\nCompleted \033[36m=== {} ===\033[0m\n\n".format(func.__name__))
-        
-
     return wrapper
