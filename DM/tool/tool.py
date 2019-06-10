@@ -10,9 +10,10 @@ os.system("")
 def clock(func):
     def clocked(*args,**kw):
         start = time.time()
-        return func(*args, **kw)
+        result = func(*args, **kw)
         cost = time.time() - start
         print('%s used [%0.8fs]' % (func.__name__, cost))
+        return result
     return clocked
 
 def file_name(file_name:str,suffix:str)->str:
@@ -22,7 +23,11 @@ def file_name(file_name:str,suffix:str)->str:
 
 def logger(func):
     def wrapper(*args, **kw):
+        start = time.time()
         print("\n[INFO]  Start \033[36m=== {} ===\033[0m at {} \n\n".format(func.__name__, time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())))
-        return func(*args, **kw)
-        print("\n[INFO]  Completed \033[36m=== {} ===\033[0m at {} \n\n".format(func.__name__, time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())))
+        result = func(*args, **kw)
+        cost = time.time() - start
+        print("\n[INFO]  Completed \033[36m=== {} ===\033[0m at {} ".format(func.__name__, time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())))
+        print('[INFO]  %s used [%0.8fs]' % (func.__name__, cost))
+        return result
     return wrapper

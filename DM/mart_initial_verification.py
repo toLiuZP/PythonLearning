@@ -19,7 +19,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB
 import tool.tool as tool
 
-TARGET_DB = acct.DEV_NJ_HF_MART
+TARGET_DB = acct.QA_NJ_HF_MART
 
 @tool.logger
 def search_empty_tables(cursor) -> list:
