@@ -5,15 +5,16 @@
 #   2. Sync target db
 ###
 
+import os
+import sys
+sys.path.append(os.getcwd())
+
 import conf.acct as acct
 from tool.tool import file_name,logger 
 import db_connect.db_operator as db_operator
 
-target_db = 'CO_HF_MART'
-seed_file = '.\seed\gen.sql'
-buildsql = ''
-
-
+target_db = "CO_HF_MART"
+seed_file = ".\seed\SYNC_TARGET_DB.sql"
 
 
 @logger
@@ -28,17 +29,20 @@ def clean_dma_test_mart(acct:dict):
     
 @logger
 def build_target_db(acct:dict):
+    buildsql = ''
 
-    data_file_group = target_db + '_DATA'
-    index_file_group = target_db + '_IDX'
-
-    with open(seed_file) as file_object:
+    with open(seed_file,encoding="utf-16") as file_object:
         lines = file_object.readlines()
 
     for line in lines:
-        buildsql += line.replace(data_file_group,'').replace(index_file_group,'')
-        db_operator.update_db(buildsql,acct)
+        buildsql += line.replace(target_db,'DMA_MART_TEST').replace('GO',' ') #.replace('\n',' ').replace('\t',' ').
+
+    test_name = file_name("gen_db_test",".sql")
+    with open(test_name, 'w') as file_object:
+        file_object.write(buildsql)
+
+    db_operator.update_db(buildsql,acct)
 
 
-clean_dma_test_mart(acct.QA_CO_HF_MART)
-build_target_db(acct.QA_CO_HF_MART)
+clean_dma_test_mart(acct.DEV_DMA_MART_TEST)
+build_target_db(acct.DEV_DMA_MART_TEST)
