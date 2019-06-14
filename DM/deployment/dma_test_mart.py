@@ -20,7 +20,7 @@ seed_file = ".\seed\SYNC_TARGET_DB.sql"
 @logger
 def clean_dma_test_mart(acct:dict):
 
-    query = "SELECT 'DROP TABLE ' + NAME + ';' FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
+    query = "SELECT 'DROP TABLE [' + NAME + '];' FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
     result = db_operator.query_db(query,acct)
 
     for item in result:
@@ -35,13 +35,16 @@ def build_target_db(acct:dict):
         lines = file_object.readlines()
 
     for line in lines:
-        buildsql += line.replace(target_db,'DMA_MART_TEST').replace('GO',' ') #.replace('\n',' ').replace('\t',' ').
+        buildsql += line.replace(target_db,'DMA_MART_TEST').replace('GO\n','\n') #.replace('\n',' ').replace('\t',' ').
 
-    test_name = file_name("gen_db_test",".sql")
+    '''test_name = file_name("gen_db_test",".sql")
     with open(test_name, 'w') as file_object:
         file_object.write(buildsql)
+        '''
 
     db_operator.update_db(buildsql,acct)
+
+
 
 
 clean_dma_test_mart(acct.DEV_DMA_MART_TEST)
