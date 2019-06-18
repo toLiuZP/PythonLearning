@@ -12,8 +12,13 @@ import sys
 sys.path.append(os.getcwd())
 from tool.tool import file_name 
 
+file_group = ''
 new_table_list = []
 rollback_sql = ''
+rename_sql = ''
+drop_index_sql = ''
+add_index_sql = ''
+column_sql = ''
 rest_sql = ''
 
 def gen_drop_table(drop_table_nm)->str:
@@ -41,6 +46,19 @@ END
 '''.replace('table_nm',drop_table_nm).replace('index_nm',drop_index_nm)
     return sql
 
+def gen_add_index(drop_table_nm:str, drop_index_nm:str, file_group:str)->str:
+    sql = '''
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.table_nm') AND name='index_nm')
+BEGIN
+	CREATE NONCLUSTERED INDEX [index_nm] ON [dbo].[table_nm](XXXXXXXXXXX)
+	WITH (PAD_INDEX= OFF,STATISTICS_NORECOMPUTE =OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING= OFF, MAXDOP=0, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS= ON)
+	ON INDEX_FILE_GROUP
+	PRINT '<<< CREATED INDEX dbo.table_nm.index_nm >>>'
+END
+
+'''.replace('INDEX_FILE_GROUP',file_group+'_IDX').replace('table_nm',drop_table_nm).replace('index_nm',index_nm)
+    return sql
+
 def gen_drop_column(drop_table_nm:str, drop_column_nm:str)->str:
     sql = '''
 IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.table_nm') AND name='column_nm')
@@ -52,10 +70,45 @@ END
 '''.replace('table_nm',drop_table_nm).replace('column_nm',drop_column_nm)
     return sql
 
+def gen_add_column(drop_table_nm:str, drop_column_nm:str)->str:
+    sql = '''
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.table_nm') AND name='column_nm')
+BEGIN
+	ALTER TABLE DBO.table_nm ADD column_nm XXXXXXXXXXX
+	PRINT '[INFO] ADDED COLUMN [DBO].[table_nm].[column_nm]'
+END
 
-filename = '.\seed\gen.sql'
+'''.replace('table_nm',drop_table_nm).replace('column_nm',drop_column_nm)
+    return sql
+
+def gen_rename_table(original_table_nm:str, new_table_nm:str)->str:
+    sql = '''
+IF EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'new_table_nm')
+BEGIN
+	EXEC sp_rename 'dbo.new_table_nm', 'original_table_nm'; 
+	PRINT 'Renamed [DBO].[new_table_nm] to [original_table_nm]'
+END
+
+'''.replace('original_table_nm',original_table_nm).replace('new_table_nm',new_table_nm)
+    return sql
+
+def gen_rename_column(table_nm:str, new_column_nm:str, original_column_nm:str)->str:
+    sql = '''
+IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.table_nm') AND name='new_column_nm')
+BEGIN
+	EXEC SP_RENAME 'table_nm.new_column_nm', 'original_column_nm', 'COLUMN'
+	PRINT '[INFO] UPDATED [DBO].[table_nm].[new_column_nm] to [original_column_nm]'
+END
+
+'''.replace('table_nm',table_nm).replace('new_column_nm',new_column_nm).replace('original_column_nm',original_column_nm)
+    return sql
+
+
+filename = r'.\seed\release_scripts.sql'
 with open(filename) as file_object:
-    rollback_sql += file_object.readline()
+    first_line = file_object.readline()
+    file_group = first_line[4:]
+    rollback_sql += first_line
     rollback_sql += file_object.readline()
     rollback_sql += file_object.readline()
     lines = file_object.readlines()
@@ -63,7 +116,7 @@ with open(filename) as file_object:
 
 for line in lines:
     line = line.replace('\t','').replace('\n','').replace('[','').replace(']','').upper() 
-    # genreate drop table statement
+    # generate drop table statement
     if line.startswith("CREATE TABLE"):
         start_position = line.find('.')
         table_nm = line[start_position+1:].replace(' ','')
@@ -71,35 +124,61 @@ for line in lines:
         table_nm = table_nm[:end_position]
         new_table_list.append(table_nm)
         rollback_sql += gen_drop_table(table_nm)
-        #print(table_nm)
-    # genreate drop index statement
-    elif line.startswith("IF NOT EXISTS (SELECT * FROM SYS.INDEXES"):
-        table_start_position = line.find("OBJECT_ID('")
-        table_end_position = line.find("')")
-        table_nm = line[table_start_position+15:table_end_position]
+    # generate rename table statement
+    elif line.startswith("EXEC SP_RENAME") and line.endswith("'COLUMN'") == False:
+        original_table_start_position = line.find('.')
+        original_table_end_position = line.find("'",original_table_start_position)
+        original_table_name = line[original_table_start_position+1:original_table_end_position]
 
-        index_start_position = line[table_end_position:].lstrip().find("NAME='")
-        index_nm = line[table_end_position+index_start_position+6:]
-        index_end_position = index_nm.find("')")
-        index_nm = index_nm[:index_end_position]
+        new_table_start_position = line.find("'",original_table_end_position+1)
+        new_table_end_position = line.find("'",new_table_start_position+1)
+        new_table_name = line[new_table_start_position+1:new_table_end_position]
+
+        rename_sql += gen_rename_table(original_table_name,new_table_name)
+    # generate rename column statement
+    elif line.startswith("EXEC SP_RENAME"):
+        table_end_position = line.find('.')
+        table_start_position = line.find("'")
+        table_name = line[table_start_position+1:table_end_position]
+
+        original_column_start_position = line.find('.')
+        original_column_end_position = line.find("'",original_column_start_position)
+        original_column_name = line[original_column_start_position+1:original_column_end_position]
+
+        new_column_start_position = line.find("'",original_column_end_position+1)
+        new_column_end_position = line.find("'",new_column_start_position+1)
+        new_column_name = line[new_column_start_position+1:new_column_end_position]
+
+        rename_sql += gen_rename_column(table_name, new_column_name,original_column_name)
+
+    # generate drop index statement
+    elif line.startswith("CREATE NONCLUSTERED INDEX"):
+        index_start_position = line.find("CREATE NONCLUSTERED INDEX ")
+        index_end_position = line.find(" ON")
+        index_nm = line[index_start_position+26:index_end_position]
+
+        table_string = line[index_end_position:].lstrip()
+        table_start_position = table_string.find("DBO.")
+        table_end_position = table_string.find("(")
+        table_nm = table_string[table_start_position+4:table_end_position]
 
         if table_nm not in new_table_list:
-            rollback_sql += gen_drop_index(table_nm,index_nm)
-            #print(table_nm+"."+index_nm)
-    elif line.startswith("IF NOT EXISTS (SELECT TOP 1 1 FROM SYS.INDEXES"):
-        table_start_position = line.find("OBJECT_ID('")
-        table_end_position = line.find("','U')")
-        table_nm = line[table_start_position+15:table_end_position]
+            drop_index_sql += gen_drop_index(table_nm,index_nm)
 
-        index_start_position = line[table_end_position:].lstrip().find("NAME='")
-        index_nm = line[table_end_position+22:]
-        index_end_position = index_nm.find("')")
-        index_nm = index_nm[:index_end_position]
+    # generate add index statement
+    elif line.startswith("DROP INDEX"):
+        index_start_position = line.find("DROP INDEX ")
+        index_end_position = line.find(" ON")
+        index_nm = line[index_start_position+11:index_end_position]
+
+        table_string = line[index_end_position:].lstrip()
+        table_start_position = table_string.find("DBO.")
+        table_nm = table_string[table_start_position+4:]
 
         if table_nm not in new_table_list:
-            rollback_sql += gen_drop_index(table_nm,index_nm)
-            #print(table_nm+"."+index_nm)
-    # genreate drop column statement
+            add_index_sql += gen_add_index(table_nm,index_nm,file_group)
+
+    # generate rollback for columns change
     elif line.startswith("ALTER TABLE "):
         orignal_sql = line
         line = line.replace('ALTER TABLE','').lstrip().replace('DBO.','')
@@ -108,19 +187,35 @@ for line in lines:
         table_nm = line[:table_end_position]
 
         line = line[table_end_position:].lstrip()
-
+        
+        # generate drop column statement for new added columns
         if line.startswith("ADD"):
             line = line.replace('ADD','').lstrip()
             column_end_position = line.find(" ")
             column_nm = line[:column_end_position]
 
             if table_nm not in new_table_list:
-                rollback_sql += gen_drop_column(table_nm,column_nm)
-                #print(table_nm+"."+column_nm)
+                column_sql += gen_drop_column(table_nm,column_nm)
+        
+        # generate add column statement for dropped columns
+        if line.startswith("DROP COLUMN") :
+            line = line.replace('DROP COLUMN','').lstrip()
+            column_end_position = line.find(" ")
+            column_nm = line[:column_end_position]
+
+            if table_nm not in new_table_list:
+                column_sql += gen_add_column(table_nm,column_nm)
+                print("Need manually handle: \033[32m"+ orignal_sql+"\033[0m for column type")
+
         if line.startswith("DROP COLUMN") or line.startswith("ALTER COLUMN"):
             print("Need manually handle: \033[32m"+ orignal_sql+"\033[0m")
     else:
         rest_sql += line + "\n"
+
+rollback_sql += drop_index_sql
+rollback_sql += column_sql
+rollback_sql += add_index_sql
+rollback_sql += rename_sql
 
 rollbackfilename = file_name("rollback",".sql")
 with open(rollbackfilename, 'w') as file_object:

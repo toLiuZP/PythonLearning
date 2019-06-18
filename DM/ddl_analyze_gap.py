@@ -14,13 +14,13 @@ import conf.acct as acct
 import db_connect.db_operator as DB
 from tool.tool import file_name,logger 
 
-SEED_FILE = ".\seed\DDL_GAP.xlsx"
+SEED_FILE = ".\seed\DDL_GAP_AB.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = file_name('DDL_GAP_AB','xlsx')
 workbook = load_workbook(SEED_FILE)
 ddl_sheet = workbook.get_sheet_by_name('DDL')
 view_sheet = workbook.get_sheet_by_name('VIEW')
-view_sheet = workbook.get_sheet_by_name('INDEX')
+index_sheet = workbook.get_sheet_by_name('INDEX')
 
 def merge_ddl(dev, qa, sheet):
 
@@ -94,10 +94,10 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 if __name__ == '__main__':
 
     db_a = acct.DEV_DMA_MART_TEST
-    db_b = acct.QA_CO_HF_MART
+    db_b = acct.UAT_CO_HF_MART
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
-    check_index(workbook,ddl_sheet,db_a,db_b)
+    check_index(workbook,index_sheet,db_a,db_b)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))
 workbook.remove_sheet(workbook.get_sheet_by_name('VIEW'))
