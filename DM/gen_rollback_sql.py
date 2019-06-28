@@ -18,6 +18,7 @@ rollback_sql = ''
 rename_sql = ''
 drop_index_sql = ''
 add_index_sql = ''
+add_backup_table_sql = ''
 column_sql = ''
 rest_sql = ''
 
@@ -104,6 +105,19 @@ END
     return sql
 
 
+def gen_add_back_table(original_table_nm:str, new_table_nm:str)->str:
+    sql = '''
+IF EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'new_table_nm')
+BEGIN
+	DROP TABLE original_table_nm
+	EXEC sp_rename 'dbo.new_table_nm', 'original_table_nm'; 
+	PRINT 'Renamed [DBO].[new_table_nm] to [original_table_nm]'
+END
+
+'''.replace('original_table_nm',original_table_nm).replace('new_table_nm',new_table_nm)
+    return sql
+
+
 filename = r'.\seed\release_scripts.sql'
 with open(filename) as file_object:
     first_line = file_object.readline()
@@ -115,7 +129,7 @@ with open(filename) as file_object:
 
 
 for line in lines:
-    line = line.replace('\t','').replace('\n','').replace('[','').replace(']','').upper() 
+    line = line.replace('\t','').replace('\n','').replace('[','').replace(']','').upper().lstrip()
     # generate drop table statement
     if line.startswith("CREATE TABLE"):
         start_position = line.find('.')
@@ -198,6 +212,7 @@ for line in lines:
                 column_sql += gen_drop_column(table_nm,column_nm)
         
         # generate add column statement for dropped columns
+        '''
         if line.startswith("DROP COLUMN") :
             line = line.replace('DROP COLUMN','').lstrip()
             column_end_position = line.find(" ")
@@ -209,6 +224,22 @@ for line in lines:
 
         if line.startswith("DROP COLUMN") or line.startswith("ALTER COLUMN"):
             print("Need manually handle: \033[32m"+ orignal_sql+"\033[0m")
+        '''
+    # generate add backup table statement
+    elif line.startswith("SELECT * INTO"):
+        new_table_start_position = line.find("SELECT * INTO ")
+        new_table_end_postion = line.find(" FROM")
+        new_table_nm = line[new_table_start_position+14:new_table_end_postion]
+
+        original_table_start_position = line.find("FROM")
+        if line.endswith("WITH(NOLOCK)"):
+            new_table_end_postion = line.find(" WITH(NOLOCK)")
+            original_table_nm = line.rstrip()[original_table_start_position+5:new_table_end_postion]
+        else:
+            original_table_nm = line.rstrip()[original_table_start_position+5:]
+
+        add_backup_table_sql += gen_add_back_table(original_table_nm,new_table_nm)
+   
     else:
         rest_sql += line + "\n"
 
@@ -216,6 +247,8 @@ rollback_sql += drop_index_sql
 rollback_sql += column_sql
 rollback_sql += add_index_sql
 rollback_sql += rename_sql
+rollback_sql += add_backup_table_sql
+
 
 rollbackfilename = file_name("rollback",".sql")
 with open(rollbackfilename, 'w') as file_object:

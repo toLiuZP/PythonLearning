@@ -31,3 +31,7 @@ def logger(func):
         print('[INFO]  %s used [%0.8fs]' % (func.__name__, cost))
         return result
     return wrapper
+
+def save_file(file_nm:str, contect:str):
+    with open(file_nm, 'w') as file_object:
+        file_object.write(contect)

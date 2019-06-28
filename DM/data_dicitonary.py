@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 
 from db_connect.sqlserver_db import UseSqlserverDB
 import conf.acct as acct
-import tool.TSQL_function as TSQL_function
+import tool.TSQL as TSQL_function
 import tool.tool as tool
 
 CURRENT_DB = acct.DEV_CA_DMA_MART

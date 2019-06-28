@@ -94,7 +94,7 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 if __name__ == '__main__':
 
     db_a = acct.DEV_DMA_MART_TEST
-    db_b = acct.UAT_CO_HF_MART
+    db_b = acct.UAT_TX_CAMPING_MART
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
     check_index(workbook,index_sheet,db_a,db_b)

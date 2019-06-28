@@ -13,7 +13,7 @@ import conf.acct as acct
 from tool.tool import file_name,logger 
 import db_connect.db_operator as db_operator
 
-target_db = "CO_HF_MART"
+target_db = "TX_CAMPING_MART"
 seed_file = ".\seed\SYNC_TARGET_DB.sql"
 
 
@@ -21,11 +21,13 @@ seed_file = ".\seed\SYNC_TARGET_DB.sql"
 def clean_dma_test_mart(acct:dict):
 
     query = "SELECT 'DROP TABLE [' + NAME + '];' FROM sysobjects WHERE xtype = 'U' AND uid = 1 ORDER BY name"
+    deletedsql = ''
     result = db_operator.query_db(query,acct)
 
     for item in result:
-        deletedsql = item[0]
-        db_operator.update_db(deletedsql,acct)
+        deletedsql += item[0]
+    
+    db_operator.update_db(deletedsql,acct)
     
 @logger
 def build_target_db(acct:dict):
@@ -41,10 +43,7 @@ def build_target_db(acct:dict):
     with open(test_name, 'w') as file_object:
         file_object.write(buildsql)
         '''
-
     db_operator.update_db(buildsql,acct)
-
-
 
 
 clean_dma_test_mart(acct.DEV_DMA_MART_TEST)
