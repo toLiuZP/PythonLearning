@@ -1,5 +1,6 @@
 ###
 # TODO: Need to update to keep the format of spreadsheet.
+# TODO: CHECK D_VEHICLE.D_VEHICLE_COWN_MAIL_ADDR_KEY_IX
 ###
 
 import pandas as pd
@@ -22,8 +23,8 @@ ddl_sheet = workbook.get_sheet_by_name('DDL')
 view_sheet = workbook.get_sheet_by_name('VIEW')
 view_sheet = workbook.get_sheet_by_name('INDEX')
 
-check_list = ['CO_HF_MART','KS_HF_MART','MS_HF_MART','TX_CAMPING_MART']
-#check_list = ['CO_HF_MART']
+#check_list = ['CO_HF_MART','KS_HF_MART','MS_HF_MART','TX_CAMPING_MART']
+check_list = ['TX_CAMPING_MART']
 
 def merge_ddl(dev, qa, uat, sheet, prod='none'):
 
@@ -200,7 +201,7 @@ if __name__ == '__main__':
     for contract in check_list:
         check_ddl(workbook,ddl_sheet,contract)
         #check_view(workbook,view_sheet,contract)
-        #check_index(workbook,view_sheet,contract)
+        check_index(workbook,view_sheet,contract)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))
 workbook.remove_sheet(workbook.get_sheet_by_name('VIEW'))

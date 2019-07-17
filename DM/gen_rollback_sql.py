@@ -5,6 +5,7 @@
 #   If new indexes created, drop the new indexes
 #   If new columns added, drop these new columns
 #   If drop or alter exist columns, need manually modify.
+# TODO: F_ORDER_ITEM_TRANSACTION.VEHICLE_ADDITIONAL_SURCHARGE_FEE_AMT
 ##
 
 import os
@@ -195,7 +196,7 @@ for line in lines:
     # generate rollback for columns change
     elif line.startswith("ALTER TABLE "):
         orignal_sql = line
-        line = line.replace('ALTER TABLE','').lstrip().replace('DBO.','')
+        line = line.replace('ALTER TABLE ','').lstrip().replace('DBO.','')
 
         table_end_position = line.find(" ")
         table_nm = line[:table_end_position]
@@ -204,7 +205,7 @@ for line in lines:
         
         # generate drop column statement for new added columns
         if line.startswith("ADD"):
-            line = line.replace('ADD','').lstrip()
+            line = line.replace('ADD ','').lstrip()
             column_end_position = line.find(" ")
             column_nm = line[:column_end_position]
 
@@ -250,10 +251,10 @@ rollback_sql += rename_sql
 rollback_sql += add_backup_table_sql
 
 
-rollbackfilename = file_name("rollback",".sql")
+rollbackfilename = file_name("rollback","sql")
 with open(rollbackfilename, 'w') as file_object:
     file_object.write(rollback_sql)
 
-restfilename = file_name("restforaduit",".sql")
+restfilename = file_name("restforaduit","sql")
 with open(restfilename, 'w') as file_object:
     file_object.write(rest_sql)
