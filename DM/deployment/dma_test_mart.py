@@ -13,7 +13,7 @@ import conf.acct as acct
 from tool.tool import file_name,logger 
 import db_connect.db_operator as db_operator
 
-target_db = "TX_CAMPING_MART"
+target_db = "CO_HF_MART"
 seed_file = ".\seed\SYNC_TARGET_DB.sql"
 
 
@@ -33,7 +33,7 @@ def clean_dma_test_mart(acct:dict):
 def build_target_db(acct:dict):
     buildsql = ''
 
-    with open(seed_file,encoding="utf-16") as file_object:
+    with open(seed_file,encoding="utf") as file_object:
         lines = file_object.readlines()
 
     for line in lines:

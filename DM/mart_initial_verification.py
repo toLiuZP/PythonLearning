@@ -15,11 +15,11 @@ import os
 
 os.system("")
 
-import conf.acct_oracle as acct
+import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB
 import tool.tool as tool
 
-TARGET_DB = acct.UAT_CO_HF_MART
+TARGET_DB = acct.PROD_KS_CAMPING_MART
 
 @tool.logger
 def search_empty_tables(cursor) -> list:
