@@ -1,7 +1,11 @@
 
+##
+# TODO: delete
+##
+
 def query_metadata(cursor, table_list='none'):
 
-    metadata_list = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' AND  (table_name NOT LIKE 'MSpeer_%' AND table_name NOT LIKE 'MSpub_%' AND table_name NOT LIKE 'syncobj_0x%' AND table_name NOT LIKE 'sysarticle%' AND table_name NOT LIKE 'sysextendedarticlesview' AND table_name NOT LIKE 'syspublications' AND table_name <> 'sysreplservers' AND table_name <> 'sysreplservers' AND table_name <> 'sysschemaarticles' AND table_name <> 'syssubscriptions' AND table_name <> 'systranschemas' AND table_name NOT LIKE 'O_LEGACY_%' AND table_name NOT LIKE 'QUEST_%' and table_name <> 'D_AUDIT_LOG')  ORDER BY table_name, ordinal_position"
+    metadata_list = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' AND  ((table_name LIKE 'D[_]%' OR table_name LIKE 'B[_]%' OR table_name LIKE 'R[_]%' OR table_name LIKE 'F[_]%' OR table_name LIKE 'RPT[_]%') and table_name <> 'D_AUDIT_LOG') AND DATA_TYPE = 'varchar' AND CHARACTER_MAXIMUM_LENGTH > 14 ORDER BY table_name, ordinal_position"
     cursor.execute(metadata_list)
     rs_list = cursor.fetchall()
     i = 0

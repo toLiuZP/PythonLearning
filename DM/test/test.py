@@ -1,14 +1,20 @@
-def yield_test(n):  
-    for i in range(n):  
-        yield call(i)  
-        print("i=",i)  
-    #做一些其它的事情      
-    print("do something.")      
-    print("end.")  
-  
-def call(i):  
-    return i*2  
-  
-#使用for循环  
-for i in yield_test(5):  
-    print(i,",")  
+import json
+
+
+'''
+f=open(r".\seed\business_key.json",'r')
+print(json.load(f))
+f.close()
+
+
+t=file(r'.\seed\business_key.json')
+test = json.load(f)
+'''
+
+filename = r'.\seed\business_key.json'
+with open(filename) as f:
+    t = json.load(f)
+
+    for i in t:
+        pass
+    pass

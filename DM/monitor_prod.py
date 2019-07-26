@@ -26,7 +26,6 @@ def getMartTime(mart_server, mart_list, model_type, matrix):
                     item[2] = result
                     item[4] = query
     return matrix
-    
 
 def getAOTime(ao_server, ao_list, model_type, matrix):
     with UseOracleDB(ao_server) as cursor:
@@ -47,11 +46,11 @@ def isDelay():
     pass
 
 US_HF_MART_LIST = ('CO','KS','MS')
-US_CAMPING_MART_LIST = ('TX',)
+US_CAMPING_MART_LIST = ('TX','KS')
 CA_HF_MART_LIST = ('AB',)
 
 US_HF_AO_LIST = ('CO','KS','MS')
-US_CAMPING_HF_AO_LIST = ('TX',)
+US_CAMPING_HF_AO_LIST = ('TX','KS')
 CA_HF_AO_LIST = ('AB',)
 
 US_MART_DB = acct.PROD_CO_HF_MART
@@ -59,19 +58,16 @@ CA_MART_DB = acct.PROD_AB_HF_MART
 US_AO_DB = acct_oracle.PROD_US
 CA_AO_DB = acct_oracle.PROD_CDC_CA
 
-
-matrix = [ [0] * 6 for i in range(5)]
+matrix = [ [0] * 6 for i in range(6)]
 matrix[0][0] = 'TX'
 matrix[1][0] = 'CO'
 matrix[2][0] = 'KS'
 matrix[3][0] = 'MS'
 matrix[4][0] = 'AB'
+matrix[5][0] = 'KS'
 
 warningFlg = False
 mail_msg = "Following contracts have more then 8 hours gap, please check.\n\n"
-
-#msg = "Verify start"
-#mail.send_mail(msg)
 
 getMartTime(US_MART_DB, US_HF_MART_LIST, 'HF',matrix)
 getMartTime(US_MART_DB, US_CAMPING_MART_LIST, 'Camping', matrix)
@@ -90,24 +86,21 @@ for item in matrix:
     mart_datetime = parse(mart_datetime_str)
 
     gap = ao_datetime - mart_datetime
-
     gap_hour = gap.total_seconds() / 3600
 
+    print(str(schema) + ' gap is ' + str(gap_hour) + ' hour')
+
     if gap_hour > 8 :
-
         warningFlg = True
-
         mail_msg =  mail_msg + ' \r\n' + schema + " MART's latest datetime is " + str(mart_datetime_str) 
         mail_msg =  mail_msg + ' \r\n' + schema + " AO's latest datetime is " + str(ao_datetime_str) 
 
 if warningFlg:
-    #print(mail_msg)
-    mail.send_mail(mail_msg)
-'''else:
-    mail_msg = "Everything is good"
-    print(mail_msg)
-    mail.send_mail(mail_msg)
-    '''
+    #mail.send_mail(mail_msg)
+    pass
+else:
+    print("Everything is good")
+
 
 
 

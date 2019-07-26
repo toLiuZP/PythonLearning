@@ -5,7 +5,6 @@
 #   If new indexes created, drop the new indexes
 #   If new columns added, drop these new columns
 #   If drop or alter exist columns, need manually modify.
-# TODO: F_ORDER_ITEM_TRANSACTION.VEHICLE_ADDITIONAL_SURCHARGE_FEE_AMT
 ##
 
 import os

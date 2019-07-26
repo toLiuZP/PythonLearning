@@ -3,9 +3,8 @@ import sys
 from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
 
 def inquery_single_row(query, cursor):
-
-    print(query)    
     
+    #print(query)    
     cursor.execute(query)
     result = cursor.fetchall()
     if len(result) > 0:

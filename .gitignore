@@ -9,6 +9,5 @@ DM/seed/gen.sql
 DM/tool/__pycache__/__init__.cpython-36.pyc
 DM/seed/SYNC_TARGET_DB.sql
 DM/seed/release_scripts.sql
-DM/seed/SYNC_TARGET_DB.sql
-DM/seed/SYNC_TARGET_DB.sql
-DM/seed/release_scripts.sql
+DM/seed/Domain Data Template.xlsx
+

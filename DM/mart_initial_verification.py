@@ -12,6 +12,7 @@
 import pandas as pd
 import sys
 import os
+import json
 
 os.system("")
 
@@ -19,17 +20,16 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB
 import tool.tool as tool
 
-TARGET_DB = acct.PROD_KS_CAMPING_MART
+TARGET_DB = acct.UAT_CO_HF_MART
+
+filename = r'.\seed\business_key.json'
+with open(filename) as f:
+    t = json.load(f)
 
 @tool.logger
 def search_empty_tables(cursor) -> list:
 
-
-    #generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND (name NOT LIKE 'MSpeer_%' AND name NOT LIKE 'MSpub_%' AND name NOT LIKE 'syncobj_0x%' AND name NOT LIKE 'sysarticle%' AND name NOT LIKE 'sysextendedarticlesview' AND name NOT LIKE 'syspublications' AND name <> 'sysreplservers' AND name <> 'sysreplservers' AND name <> 'sysschemaarticles' AND name <> 'syssubscriptions' AND name <> 'systranschemas' AND name NOT LIKE 'O_LEGACY_%' AND name NOT LIKE 'QUEST_%' and name <> 'D_AUDIT_LOG') ORDER BY name"
     generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND ((name LIKE 'D[_]%' OR name LIKE 'B[_]%' OR name LIKE 'R[_]%' OR name LIKE 'F[_]%' OR name LIKE 'RPT[_]%') and name <> 'D_AUDIT_LOG') ORDER BY name"
-
-
-    
     cursor.execute(generate_empty_validation_sql)
     rs_table_list = cursor.fetchall()
     not_empty_list = []
@@ -39,8 +39,9 @@ def search_empty_tables(cursor) -> list:
         sql_text = item[1]
 
         cursor.execute(sql_text)
-        rs_is_table_empty = cursor.fetchall()
+        rs_table_data = cursor.fetchall()
 
+        '''
         if len(rs_is_table_empty) == 0:
             print ("\033[32m" + table_name + " \033[0mis empty, please check.")
         elif len(rs_is_table_empty) == 1 and (str(table_name).startswith("D_") or str(table_name).startswith("R_")):
@@ -48,6 +49,14 @@ def search_empty_tables(cursor) -> list:
                  print ("\033[32m" + table_name + "\033[0m only has -1 key row, please check.")
         else:
             not_empty_list.append(table_name)
+        '''
+        if rs_table_data:
+            if len(rs_table_data) == 1 and (str(table_name).startswith("D_") or str(table_name).startswith("R_")) and rs_table_data[0][0] == -1:
+                print ("\033[32m" + table_name + "\033[0m only has -1 key row, please check.")
+            else:
+                not_empty_list.append(table_name)
+        else:
+            print ("\033[32m" + table_name + " \033[0mis empty, please check.")
 
     return not_empty_list
 
@@ -96,7 +105,8 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
         rs_has_duplicate = cursor.fetchall()
         if len(rs_has_duplicate) > 0:
             print ("\n\033[31m" + old_table_name + " has duplicate data on AWO_ID\033[0m, please check by \n <<  \033[33mSELECT * FROM " + old_table_name + " WHERE AWO_ID = " + str(rs_has_duplicate[0][0]) + "\033[0m  >>\n")
-                
+
+@tool.logger                
 def check_data(cursor, table_list):
     """
     " 1. Validate if column is null.
@@ -104,7 +114,7 @@ def check_data(cursor, table_list):
     " 3. If it's MART_SOURCE_ID, validate if it has duplicates.
     """
     
-    check_minus_one_rows(cursor, table_list)
+    #check_minus_one_rows(cursor, table_list)
 
     print("\n\n\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")
 
@@ -131,6 +141,7 @@ def check_data(cursor, table_list):
             if row_count == 0:
                 pk_column = column_name
             if old_table_name != table_name:
+                #print(table_name)
                 pk_column = column_name
                 if table_count != 0:
                     check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name)

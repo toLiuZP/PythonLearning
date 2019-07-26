@@ -13,7 +13,7 @@ import conf.acct as acct
 from tool.tool import file_name,logger 
 import db_connect.db_operator as db_operator
 
-target_db = "CO_HF_MART"
+target_db = "TX_CAMPING_MART"
 seed_file = ".\seed\SYNC_TARGET_DB.sql"
 
 
@@ -35,14 +35,9 @@ def build_target_db(acct:dict):
 
     with open(seed_file,encoding="utf") as file_object:
         lines = file_object.readlines()
-
     for line in lines:
         buildsql += line.replace(target_db,'DMA_MART_TEST').replace('GO\n','\n') #.replace('\n',' ').replace('\t',' ').
 
-    '''test_name = file_name("gen_db_test",".sql")
-    with open(test_name, 'w') as file_object:
-        file_object.write(buildsql)
-        '''
     db_operator.update_db(buildsql,acct)
 
 

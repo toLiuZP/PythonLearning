@@ -4,7 +4,7 @@ import pandas as pd
 from db_connect.oracle_db import UseOracleDB
 
 def has_row(query, cursor):
-    print(query)
+    #print(query)
     cursor.execute(query)
     row = cursor.fetchall()
     if len(row) == 0:
@@ -13,7 +13,7 @@ def has_row(query, cursor):
         return True
 
 def inquery_single_row(query, cursor):
-    print(query)
+    #print(query)
     cursor.execute(query)
     result = cursor.fetchall()
     if len(result) > 0:

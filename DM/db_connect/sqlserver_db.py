@@ -54,3 +54,22 @@ class UseSqlserverDBPandas:
             raise SQLError(exc_value)
         elif exc_type:
             raise exc_type(exc_value)
+
+
+def query_first_value(cursor,sql):
+    cursor.execute(sql)
+    rs = cursor.fetchall()
+    return rs[0][0]
+
+
+def has_data(cursor,sql):
+    cursor.execute(sql)
+    rs = cursor.fetchall()
+    return len(rs) > 0
+    
+
+def query(cursor,sql):
+    cursor.execute(sql)
+    rs = cursor.fetchall()
+    return rs
+    
