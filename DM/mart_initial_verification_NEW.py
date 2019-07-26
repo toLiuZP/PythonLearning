@@ -5,7 +5,6 @@
 # validate if any key is all -1 value or any column is all null except -1 row
 # check if there is -1 row in D_ and R_
 #
-# TODO: adding print not validate table list
 ##
 import pandas as pd
 import sys
@@ -21,8 +20,6 @@ import tool.tool as tool
 
 TARGET_DB = acct.UAT_CO_HF_MART
 table_list = []
-#table_list = ['F_PAYMENT_ALLOCATION','F_POINT_TRANSACTION','F_PREFERENCE_POINT_BALANCE','F_SUSPENSION','F_VEHICLE_LIEN','F_VEHICLE_RTI','F_VENDOR_BOND','F_VOUCHER']
-
 #table_list = ['B_HUNTER_EDUCATION_VERIFICATION']
 
 
@@ -171,16 +168,15 @@ def check_column(cursor, tb_list, business_key_conf):
         table_name = item[0]
         column_name = item[1]
 
-        
+        '''
+        # testing code #
         print("table_name:  " + table_name)
         print("column_name:  " + column_name)
-        
 
         if column_name == 'B_HUNTER_EDUCATION_VERIFICATION_KEY':
             print('test')
             pass
-        
-        
+        '''
 
         if row_count == 0:
             pk_column = column_name

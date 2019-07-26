@@ -5,7 +5,6 @@
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
-#from openpyxl.writer.excel import ExcelWriter
 
 from db_connect.sqlserver_db import UseSqlserverDB
 import conf.acct as acct
