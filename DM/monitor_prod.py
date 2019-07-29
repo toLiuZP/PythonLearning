@@ -42,8 +42,6 @@ def getAOTime(ao_server, ao_list, model_type, matrix):
                     item[3] = query
     return matrix
 
-def isDelay():
-    pass
 
 US_HF_MART_LIST = ('CO','KS','MS')
 US_CAMPING_MART_LIST = ('TX','KS')
@@ -96,8 +94,7 @@ for item in matrix:
         mail_msg =  mail_msg + ' \r\n' + schema + " AO's latest datetime is " + str(ao_datetime_str) 
 
 if warningFlg:
-    #mail.send_mail(mail_msg)
-    pass
+    mail.send_mail(mail_msg)
 else:
     print("Everything is good")
 

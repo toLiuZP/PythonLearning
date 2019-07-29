@@ -45,7 +45,7 @@ from tool.df_compare import has_gap
 
 CURRENT_DB = acct_oracle.PROD_US
 SCHEMA = 'LIVE_CO'
-SEED_FILE = '.\seed\TX_CAMPING_CFG.xlsx'
+SEED_FILE = r'.\seed\TX_CAMPING_CFG.xlsx'
 
 os.system("")
 

@@ -1,4 +1,8 @@
-import scrub_camping
+import os
+import sys
+sys.path.append(os.getcwd())
+
+import onetimefunction.scrub_camping
 #import scrub_hf
 import conf.acct as acct
 

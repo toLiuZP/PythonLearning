@@ -12,9 +12,9 @@ import openpyxl.styles as sty
 
 import conf.acct as acct
 import db_connect.db_operator as DB
-from tool.tool import file_name,logger 
+from tool.tool import file_name,logger,identify_backup_tables
 
-SEED_FILE = ".\seed\DDL_GAP.xlsx"
+SEED_FILE = r".\seed\DDL_GAP.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = file_name('DDL_GAP','xlsx')
 workbook = load_workbook(SEED_FILE)
@@ -36,6 +36,8 @@ def merge_ddl(dev, qa, uat, sheet, prod='none'):
 
     if isinstance(prod, str):
         for index, col in gap.iterrows():
+            if identify_backup_tables(col[0].lower()):
+                gap = gap.drop(index)
             if col[3] == col[8] == col[13] and col[4] == col[9] == col[14] \
                 and col[5] == col[10] == col[15] and col[6] == col[11] == col[16]:
                 '''Don't compare postion col[2] == col[7] == col[12] and '''
@@ -45,6 +47,8 @@ def merge_ddl(dev, qa, uat, sheet, prod='none'):
         prod = prod.fillna('null')
         gap = pd.merge(gap, prod, on = ['table_name','column_name'], how='outer')
         for index, col in gap.iterrows():
+            if identify_backup_tables(col[0].lower()):
+                gap = gap.drop(index)
             if  col[3] == col[8] == col[13]  == col[18] and col[4] == col[9] == col[14]  == col[19] \
                 and col[5] == col[10] == col[15]  == col[20] and col[6] == col[11] == col[16]  == col[21]:
                 '''Don't compare postion col[2] == col[7] == col[12] == col[17] and'''
@@ -76,6 +80,8 @@ def merge_view(dev, qa, uat, sheet, prod='none'):
 
     if isinstance(prod, str):
         for index, col in gap.iterrows():
+            if identify_backup_tables(col[0].lower()):
+                gap = gap.drop(index)
             col[2] = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
             col[3] = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
             col[4] = str(col[4]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
@@ -86,6 +92,8 @@ def merge_view(dev, qa, uat, sheet, prod='none'):
         prod = prod.fillna('null')
         gap = pd.merge(gap, prod, on = ['Type','name'], how='outer')
         for index, col in gap.iterrows():
+            if identify_backup_tables(col[0].lower()):
+                gap = gap.drop(index)
             col2 = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
             col3 = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
             col4 = str(col[4]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
@@ -119,6 +127,8 @@ def merge_index(dev, qa, uat, sheet, prod='none'):
 
     if isinstance(prod, str):
         for index, col in gap.iterrows():
+            if identify_backup_tables(col[0].lower()):
+                gap = gap.drop(index)
             if col[2] == col[3] == col[4]:
                 gap = gap.drop(index)
                 
@@ -126,6 +136,8 @@ def merge_index(dev, qa, uat, sheet, prod='none'):
         prod = prod.fillna('null')
         gap = pd.merge(gap, prod, on = ['table_nm','index_nm'], how='outer')
         for index, col in gap.iterrows():
+            if identify_backup_tables(col[0].lower()):
+                gap = gap.drop(index)
             if  col[2] == col[3] == col[4] == col[5]:
                 gap = gap.drop(index)
 
@@ -148,7 +160,6 @@ def check_ddl(workbook,ddl_sheet,contract):
 
     print("checking " + contract + " ddl")
 
-    #query = "SELECT table_name, column_name, ordinal_position , data_type, COALESCE(character_maximum_length,numeric_precision,datetime_precision) data_length, numeric_scale, is_nullable FROM " + contract + ".information_schema.columns WHERE table_schema = 'dbo' AND table_name NOT LIKE 'MSpeer_%' AND table_name NOT LIKE 'MSpub_%' AND table_name NOT LIKE 'syncobj_0x%' AND table_name NOT LIKE 'sysarticle%' AND table_name NOT LIKE 'sysextendedarticlesview' AND table_name NOT LIKE 'syspublications' AND table_name <> 'sysreplservers' AND table_name <> 'sysreplservers' AND table_name <> 'sysschemaarticles' AND table_name <> 'syssubscriptions' AND table_name <> 'systranschemas' ORDER BY table_name"
     query = "SELECT table_name, column_name, ordinal_position , data_type, COALESCE(character_maximum_length,numeric_precision,datetime_precision) data_length, numeric_scale, is_nullable FROM " + contract + ".information_schema.columns WHERE table_schema = 'dbo' AND (table_name LIKE 'D[_]%' OR table_name LIKE 'B[_]%' OR table_name LIKE 'R[_]%' OR table_name LIKE 'F[_]%' OR table_name LIKE 'RPT[_]%') ORDER BY table_name"
 
     new_sheet = workbook.copy_worksheet(ddl_sheet)

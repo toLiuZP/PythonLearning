@@ -52,7 +52,7 @@ import tool.tool as tool
 CURRENT_DB = acct_oracle.PROD_US
 os.system("")
 
-SEED_FILE = ".\seed\Domain Data Template.xlsx"
+SEED_FILE = r".\seed\Domain Data Template.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = tool.file_name('Domain Data Template','xlsx')
 workbook = load_workbook(SEED_FILE)

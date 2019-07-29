@@ -11,7 +11,7 @@ import conf.acct as acct
 import db_connect.db_operator as DB
 from tool.tool import file_name,logger,identify_backup_tables
 
-SEED_FILE = ".\seed\DDL_GAP_AB.xlsx"
+SEED_FILE = r".\seed\DDL_GAP_AB.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = file_name('DDL_GAP_AB','xlsx')
 workbook = load_workbook(SEED_FILE)
@@ -27,7 +27,6 @@ def merge_ddl(dev, qa, sheet):
     gap = pd.merge(dev, qa, on = ['table_name','column_name'], how='outer')
 
     for index, col in gap.iterrows():
-
         if identify_backup_tables(col[0].lower()):
             gap = gap.drop(index)
         if col[3] == col[8] and col[4] == col[9] \

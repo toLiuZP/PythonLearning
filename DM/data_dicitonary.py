@@ -12,7 +12,7 @@ import tool.TSQL as TSQL_function
 import tool.tool as tool
 
 CURRENT_DB = acct.DEV_CA_DMA_MART
-SEED_FILE = '.\seed\DataDictionary_Template.xlsx'
+SEED_FILE = r'.\seed\DataDictionary_Template.xlsx'
 excelName = tool.file_name('DataDictionary','xlsx')
 workbook = load_workbook(SEED_FILE)
 

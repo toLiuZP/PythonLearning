@@ -20,7 +20,7 @@ from db_connect.sqlserver_db import UseSqlserverDB
 from tool.tool import file_name,logger, save_file
 from tool.TSQL import search_db, search_column
 
-SEED_FILE = ".\seed\Search_columns.xlsx"
+SEED_FILE = r".\seed\Search_columns.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = file_name('Search_Columns','xlsx')
 workbook = load_workbook(SEED_FILE)
