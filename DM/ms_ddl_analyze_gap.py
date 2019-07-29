@@ -1,7 +1,3 @@
-###
-# TODO: Need to update to keep the format of spreadsheet.
-###
-
 import pandas as pd
 import datetime
 from openpyxl import Workbook
@@ -10,9 +6,10 @@ from openpyxl.writer.excel import ExcelWriter
 import time
 import openpyxl.styles as sty
 
+
 import conf.acct as acct
 import db_connect.db_operator as DB
-from tool.tool import file_name,logger 
+from tool.tool import file_name,logger,identify_backup_tables
 
 SEED_FILE = ".\seed\DDL_GAP_AB.xlsx"
 nameTime = time.strftime('%Y%m%d_%H%M%S')
@@ -28,8 +25,11 @@ def merge_ddl(dev, qa, sheet):
     qa = qa.fillna('null')
 
     gap = pd.merge(dev, qa, on = ['table_name','column_name'], how='outer')
-    
+
     for index, col in gap.iterrows():
+
+        if identify_backup_tables(col[0].lower()):
+            gap = gap.drop(index)
         if col[3] == col[8] and col[4] == col[9] \
             and col[5] == col[10] and col[6] == col[11] :
             '''Don't compare postion col[2] == col[7]  '''
@@ -54,6 +54,8 @@ def merge_index(dev, qa, sheet):
     gap = pd.merge(dev, qa, on = ['table_nm','index_nm'], how='outer')
 
     for index, col in gap.iterrows():
+        if identify_backup_tables(col[0].lower()):
+            gap = gap.drop(index)
         if col[2] == col[3]:
             gap = gap.drop(index)
                 
@@ -93,10 +95,10 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.PROD_CO_HF_MART
-    db_b = acct.PROD_KS_HF_MART
+    db_a = acct.DEV_GA_CAMPING_MART
+    db_b = acct.DEV_DMA_MART_TEST
 
-    #check_ddl(workbook,ddl_sheet,db_a,db_b)
+    check_ddl(workbook,ddl_sheet,db_a,db_b)
     check_index(workbook,index_sheet,db_a,db_b)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))

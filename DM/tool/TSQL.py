@@ -1,5 +1,3 @@
-# TODO:   check this
-
 
 import sys
 
