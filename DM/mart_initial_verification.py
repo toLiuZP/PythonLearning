@@ -18,7 +18,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.UAT_CO_HF_MART
+TARGET_DB = acct.PROD_TX_CAMPING_MART
 table_list = []
 #table_list = ['B_HUNTER_EDUCATION_VERIFICATION']
 
@@ -212,6 +212,11 @@ def check_column(cursor, tb_list, business_key_conf):
             null_value_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " IS NULL" 
             if has_data(cursor,null_value_check_sql):
                 print ("\033[32m" + table_name + "." + column_name + "\033[0m has \033[22mNULL\033[0m value, please verify.")
+            
+            if str(column_name).endswith("_DATE_KEY") or str(column_name).endswith("_TIME_KEY") or str(column_name).endswith("ITEM_KEY") or str(column_name).endswith("ORDER_KEY"):
+                check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " = -1 AND " + pk_column + " > 0;"
+                if has_data(cursor,check_sql):
+                    print ("\033[32m" + table_name + "." + column_name + "\033[0m has \033[22m-1\033[0m value, please verify.")
         
         row_count += 1
 
@@ -225,13 +230,14 @@ def check_data(cursor, table_list, business_key_conf):
     2. Validate if column is null.
     3. Validate if there are duplicates on awo_id/mart_source_id or business keys.
     """
+    table_counter = 0
 
     tb_list = "'"
     for table in table_list:
         tb_list += str(table) + "','"
     tb_list = tb_list[:len(tb_list)-2]
 
-    #check_minus_one(cursor, table_list)
+    check_minus_one(cursor, table_list)
     #check_translation(cursor, tb_list)
     table_counter = check_column(cursor, tb_list, business_key_conf)
     
@@ -243,15 +249,16 @@ if __name__ == '__main__':
         tables_result = search_empty_tables(cursor,table_list)
 
         if tables_result[2]:
-            print("These following tables will not been validated this time:\n")
+            print("These following table(s) will not be been validated this time:\n")
             for table_nm in tables_result[2]:
                 print(table_nm)
         if len(tables_result[0]) > 0:
             table_counter = check_data(cursor, tables_result[0],business_key_conf)
-            print("\n\nThere are "+str(tables_result[1])+" empty tables.")
-            print(str(table_counter)+" non-empty tables verified.")
+            print("\n\nThere are "+str(tables_result[1])+" empty table(s).")
+            if table_counter:
+                print(str(table_counter)+" non-empty table(s) verified.")
         else:
-            print("\n\n\033[33mAll "+str(tables_result[1])+" tables are empty.\033[0m")
+            print("\n\n\033[33mAll "+str(tables_result[1])+" table(s) are empty.\033[0m")
 
 
         
