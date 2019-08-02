@@ -18,9 +18,9 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.PROD_TX_CAMPING_MART
+TARGET_DB = acct.DEV_NC_CAMPING_MART
 table_list = []
-#table_list = ['B_HUNTER_EDUCATION_VERIFICATION']
+#table_list = ['B_CUSTOMER_MESSAGE']
 
 
 filename = r'.\seed\business_key.json'
@@ -105,7 +105,7 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
             if entity['TABLE'] == table_name:
                 find_table_ind = True
         if find_table_ind:
-            duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + " WHERE " + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
+            duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
             has_duplicate = has_data(cursor,duplicate_check_sql)
             if has_duplicate:
                 print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
@@ -118,7 +118,7 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
             if entity['TABLE'] == table_name:
                 find_table_ind = True
         if find_table_ind:
-            duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + " WHERE " + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
+            duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
             has_duplicate = has_data(cursor,duplicate_check_sql)
             if has_duplicate:
                 print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
@@ -168,10 +168,8 @@ def check_column(cursor, tb_list, business_key_conf):
 
         '''
         # testing code #
-        print("table_name:  " + table_name)
-        print("column_name:  " + column_name)
-
-        if column_name == 'B_HUNTER_EDUCATION_VERIFICATION_KEY':
+        print("checking:  \033[32m" + table_name + "\033[0m.\033[34m" + column_name+"\033[0m")
+        if column_name == 'GIFT_CARD_ITEM_KEY':
             print('test')
             pass
         '''
@@ -237,7 +235,7 @@ def check_data(cursor, table_list, business_key_conf):
         tb_list += str(table) + "','"
     tb_list = tb_list[:len(tb_list)-2]
 
-    check_minus_one(cursor, table_list)
+    #check_minus_one(cursor, table_list)
     #check_translation(cursor, tb_list)
     table_counter = check_column(cursor, tb_list, business_key_conf)
     
