@@ -25,11 +25,7 @@ table_list = ['D_CONTACT','D_CUSTOMER']
 
 file_lock = threading.Lock()
 table_counter = 0
-#message = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','message'])
-message = pd.DataFrame(['1','test','tt','dd'], columns = ['msg_type','table_nm','column_nm','message'])
-
-
-
+messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
 
 filename = r'.\seed\business_key.json'
 with open(filename) as f:
@@ -37,117 +33,102 @@ with open(filename) as f:
 
 
 class MyThread(threading.Thread):
-    def __init__(self, tb_list, business_key_conf):
-        super(MyThread, self).__init__()  # 重构run函数必须要写
-        self.tb_list = tb_list
+    def __init__(self, table_nm, business_key_conf):
+        super(MyThread, self).__init__() 
+        self.table_nm = table_nm
         self.business_key_conf = business_key_conf
 
     def run(self):
         global table_counter
-        global message
+        global messager
+        check_data(self.table_nm,self.business_key_conf,table_counter,messager)
 
-        #print (self.tb_list)
-        #if file_lock.acquire(1):
-        check_data(self.tb_list,self.business_key_conf,table_counter,message)
-        #print(threading.currentThread(), threading.activeCount())
-        #file_lock.release()
 
-def add_msg (type_id,table_name,column_nm,msg,message):
-    row = pd.DataFrame([type_id,table_name,column_nm,msg],['msg_type','table_nm','column_nm','message'])
-    message.append(row,ignore_index=True)
+def add_msg(type_nm,table_name,column_nm,msg,messager):
+    messager.append(pd.DataFrame({[type_nm],[table_name],[column_nm],[msg],['msg_type','table_nm','column_nm','messager']}),ignore_index=True)
 
 
 @logger 
 def check_data_threading(table_list):
     tsk = []
     for table in table_list:
-        tb_list = table.split()
-
-        t = MyThread(tb_list,business_key_conf)
+        #tb_list = table.split()
+        t = MyThread(table,business_key_conf)
         t.start()
         tsk.append(t)
     for t in tsk:
         t.join()
 
-@logger 
-def check_data_threading_TEST (table_list):
-    for table in table_list:
-        tb_list = table.split()
-
-        
-
-        t = threading.Thread(target=check_data ,args=(tb_list,business_key_conf,table_counter))
-        t.start()
-        #t.join()
-
-
-
 
 @logger
-def search_empty_tables(cursor, table_list) -> list:
+def search_empty_tables(table_list,messager) -> list:
 
-    generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND ((name LIKE 'D[_]%' OR name LIKE 'B[_]%' OR name LIKE 'R[_]%' OR name LIKE 'F[_]%' OR name LIKE 'RPT[_]%') and name <> 'D_AUDIT_LOG') ORDER BY name"
-    rs_table_list = query(cursor,generate_empty_validation_sql)
-    not_empty_list = []
-    empty_table_counter = 0
-    not_validate_list = []
+    with UseSqlserverDB(TARGET_DB) as cursor:
 
-    for item in rs_table_list:
-        table_name = item[0]
-        sql_text = item[1]
+        generate_empty_validation_sql = "SELECT NAME, 'SELECT TOP 2 * FROM ' + NAME + ' WITH(NOLOCK) ORDER BY 1 ASC;' AS SQL_TEXT FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND ((name LIKE 'D[_]%' OR name LIKE 'B[_]%' OR name LIKE 'R[_]%' OR name LIKE 'F[_]%' OR name LIKE 'RPT[_]%') and name <> 'D_AUDIT_LOG') ORDER BY name"
+        rs_table_list = query(cursor,generate_empty_validation_sql)
+        not_empty_list = []
+        empty_table_counter = 0
+        not_validate_list = []
 
-        if identify_backup_tables(table_name.lower()):
-            not_validate_list.append(table_name)
-            continue
+        for item in rs_table_list:
+            table_name = item[0]
+            sql_text = item[1]
 
-        if table_list:
-            if table_name not in table_list:
+            if identify_backup_tables(table_name.lower()):
+                not_validate_list.append(table_name)
                 continue
-        
-        rs_table_data = query(cursor,sql_text)
 
-        if rs_table_data:
-            if len(rs_table_data) == 1 and (str(table_name).startswith("D_") or str(table_name).startswith("R_")) and rs_table_data[0][0] == -1:
-                print ("\033[32m" + table_name + "\033[0m only has -1 key row, please check.")
+            if table_list:
+                if table_name not in table_list:
+                    continue
+            
+            rs_table_data = query(cursor,sql_text)
+
+            if rs_table_data:
+                if len(rs_table_data) == 1 and (str(table_name).startswith("D_") or str(table_name).startswith("R_")) and rs_table_data[0][0] == -1:
+                    msg = "\033[32m" + table_name + "\033[0m only has -1 key row, please check."
+                    add_msg('empty_table',table_name,'0',msg,messager)
+                    #print ("\033[32m" + table_name + "\033[0m only has -1 key row, please check.")
+                else:
+                    not_empty_list.append(table_name)
             else:
-                not_empty_list.append(table_name)
-        else:
-            empty_table_counter += 1
-            print ("\033[32m" + table_name + " \033[0mis empty, please check.")
+                empty_table_counter += 1
+                msg = "\033[32m" + table_name + " \033[0mis empty, please check."
+                add_msg('empty_table',table_name,'0',msg,messager)
+                #print ("\033[32m" + table_name + " \033[0mis empty, please check.")
         
     search_empty_result = [not_empty_list,empty_table_counter,not_validate_list]
     return search_empty_result
 
 
-def check_minus_one(cursor, checking_list,message):
+def check_default_row(cursor, table_nm, messager):
 
-    
+    if table_nm.startswith("D_") or table_nm.startswith("R_"):
+        check_sql = 'SELECT TOP 1 * FROM ' + table_nm + ' WITH(NOLOCK) ORDER BY 1 ASC;'
+        if query_first_value(cursor,check_sql) != -1:
+            msg = "\033[32m" + table_nm + "\033[0m does not have -1 key row, please check."
+            add_msg('check_default_row',table_nm,'0',msg,messager)
+            #messager.append(add_msg(1,table_name,'0',msg),ignore_index=True)
+            #print("\033[32m" + table_nm + "\033[0m does not have -1 key row, please check.")
 
-    for table_name in checking_list:
-        if table_name.startswith("D_") or table_name.startswith("R_"):
-            check_sql = 'SELECT TOP 1 * FROM ' + table_name + ' WITH(NOLOCK) ORDER BY 1 ASC;'
-            if query_first_value(cursor,check_sql) != -1:
-                msg = "\033[32m" + table_name + "\033[0m does not have -1 key row, please check."
-                #message.append(add_msg(1,table_name,'0',msg),ignore_index=True)
-                print("\033[32m" + table_name + "\033[0m does not have -1 key row, please check.")
-
-                
-
-
-def check_translation(cursor, checking_list):
         
-    list_sql = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name in(" + checking_list + ") AND DATA_TYPE = 'varchar' AND CHARACTER_MAXIMUM_LENGTH > 14 ORDER BY table_name, ordinal_position;"
+def check_translation(cursor, table_nm, messager):
+        
+    list_sql = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name ='" + table_nm + "' AND DATA_TYPE = 'varchar' AND CHARACTER_MAXIMUM_LENGTH > 14 ORDER BY table_name, ordinal_position;"
     check_list = query(cursor,list_sql)
 
-    for item in check_list:
-        table_name = item[0]
+    for item in check_list:  
+        #table_name = item[0]
         column_name_str = str(item[1])
-        
-        check_sql = "SELECT TOP 1 " + column_name_str + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name_str + " LIKE '%<<translatable%'"
+        check_sql = "SELECT TOP 1 " + column_name_str + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + column_name_str + " LIKE '%<<translatable%'"
 
         if has_data(cursor,check_sql):
-            print ("\n\033[32m" + table_name + "." + column_name_str + "\033[0m has un-translate string, please verify. SELECT TOP 100 " + column_name_str + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name_str + " LIKE '%<<translatable%'\n")
+            msg = "\n\033[32m" + table_nm + "." + column_name_str + "\033[0m has un-translate string, please verify. SELECT TOP 100 " + column_name_str + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + column_name_str + " LIKE '%<<translatable%'\n"
+            add_msg('translation',table_nm,column_name_str,msg,messager)
+            #print ("\n\033[32m" + table_nm + "." + column_name_str + "\033[0m has un-translate string, please verify. SELECT TOP 100 " + column_name_str + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + column_name_str + " LIKE '%<<translatable%'\n")
 
+'''
 def check_conf_duplicate(cursor, table_name, business_key_conf):
         
     for entity in business_key_conf:
@@ -158,75 +139,88 @@ def check_conf_duplicate(cursor, table_name, business_key_conf):
                     print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
             else:
                 print("No conf for table: " + entity['TABLE'])
+'''
+def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,table_nm,business_key_conf,messager):
 
-def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,table_name,business_key_conf):
-
-    if table_name.startswith("B_"):
+    if table_nm.startswith("B_"):
         find_table_ind = False
         for entity in business_key_conf:
-            if entity['TABLE'] == table_name:
+            if entity['TABLE'] == table_nm:
                 find_table_ind = True
         if find_table_ind:
             duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
             has_duplicate = has_data(cursor,duplicate_check_sql)
             if has_duplicate:
-                print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
+                msg = "\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n"
+                add_msg('duplicates',table_nm,entity['COLUMNS'],msg,messager)
+                #print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
         else:
-            print("No conf for table: " + table_name)
+            print("No conf for table: " + table_nm)
     
     else:
         find_table_ind = False
         for entity in business_key_conf:
-            if entity['TABLE'] == table_name:
+            if entity['TABLE'] == table_nm:
                 find_table_ind = True
         if find_table_ind:
             duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
             has_duplicate = has_data(cursor,duplicate_check_sql)
             if has_duplicate:
-                print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
+                msg = "\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n"
+                add_msg('duplicates',table_nm,entity['COLUMNS'],msg,messager)
+                #print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
         else:
 
             if has_mart_source_id == True:
-                duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_name + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
+                duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_nm + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
                 has_duplicate = has_data(cursor,duplicate_check_sql)
                 if has_duplicate:
-                    print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
+                    msg = "\n\033[31m" + table_nm + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n"
+                    add_msg('duplicates',table_nm,'MART_SOURCE_ID',msg,messager)
+                    #print ("\n\033[31m" + table_nm + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
             if has_awo_id == True and has_cur_rec_ind == True:
-                duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                duplicate_check_sql = "SELECT AWO_ID FROM " + table_nm + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
                 has_duplicate = has_data(cursor,duplicate_check_sql)
                 if has_duplicate:
-                    print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
+                    msg = "\n\033[31m" + table_nm + " has duplicate data on AWO_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE AWO_ID = " + str(has_duplicate) + "\033[0m  >>\n"
+                    add_msg('duplicates',table_nm,'AWO_ID',msg,messager)
+                    #print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
             if has_awo_id == True and has_current_record_ind == True:
-                duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                duplicate_check_sql = "SELECT AWO_ID FROM " + table_nm + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
                 has_duplicate = has_data(cursor,duplicate_check_sql)
                 if has_duplicate:
-                    print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
+                    msg = "\n\033[31m" + table_nm + " has duplicate data on AWO_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE AWO_ID = " + str(has_duplicate) + "\033[0m  >>\n"
+                    add_msg('duplicates',table_nm,'AWO_ID',msg,messager)
+                    #print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
             elif has_awo_id == True and has_current_record_ind == False and has_cur_rec_ind == False:
-                duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
+                duplicate_check_sql = "SELECT AWO_ID FROM " + table_nm + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
                 has_duplicate = has_data(cursor,duplicate_check_sql)
                 if has_duplicate:
-                    print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
+                    msg = "\n\033[31m" + table_nm + " has duplicate data on AWO_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE AWO_ID = " + str(has_duplicate) + "\033[0m  >>\n"
+                    add_msg('duplicates',table_nm,'AWO_ID',msg,messager)
+                    #print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
-def check_column(cursor, tb_list, business_key_conf,table_counter,message):
+def check_columns(cursor, table_nm, business_key_conf, table_counter, messager):
 
-    generate_raw_list = "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name IN (" + tb_list + ")ORDER BY table_name, ordinal_position"
+    generate_raw_list = "SELECT table_name,column_name,ordinal_position FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name = '" + table_nm + "' ORDER BY ordinal_position"
     rs_list = query(cursor,generate_raw_list)
 
     has_mart_source_id = False
     has_awo_id = False
     has_cur_rec_ind = False
     has_current_record_ind = False
-    old_table_name = ""
-    table_count = 0
-    row_count = 0
-    pk_column = ""
+    #old_table_name = ""
+    #table_count = 0
+    #row_count = 0
+    #pk_column = ""
 
     for item in rs_list:
-        table_name = item[0]
-        column_name = item[1]
+        #table_name = item[0]
+        column_name = str(item[1])
+        position = item[2]
 
         '''
         # testing code #
@@ -236,12 +230,13 @@ def check_column(cursor, tb_list, business_key_conf,table_counter,message):
             pass
         '''
 
-        if row_count == 0:
+        if position == 1:
             pk_column = column_name
-        if old_table_name != table_name:
+        '''if old_table_name != table_name:
             pk_column = column_name
             if table_count != 0:
                 check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name,business_key_conf)
+            
 
             table_count += 1
             has_mart_source_id = False
@@ -249,68 +244,74 @@ def check_column(cursor, tb_list, business_key_conf,table_counter,message):
             has_cur_rec_ind = False
             has_current_record_ind = False
             old_table_name = table_name
+            '''
 
         # checking if column values are all NULL except the -1 one
-        null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " IS NOT NULL"
+        null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " IS NOT NULL"
 
         if not has_data(cursor,null_check_sql):
-            msg = "\033[32m" + table_name + "." + column_name + "\033[0m is empty."
-            add_msg('3',str(table_name),str(column_name),msg,message)
-            #message.append(add_msg('3',table_name,column_name,msg),ignore_index=True)
-            print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty.")
+            msg = "\033[32m" + table_nm + "." + column_name + "\033[0m is empty."
+            add_msg('column_check',table_nm,column_name,msg,messager)
+            #messager.append(add_msg('3',table_name,column_name,msg),ignore_index=True)
+            #print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty.")
             
-        elif str(column_name) == "MART_SOURCE_ID":
+        elif column_name == "MART_SOURCE_ID":
             has_mart_source_id = True
-        elif str(column_name) == "AWO_ID":
+        elif column_name == "AWO_ID":
             has_awo_id = True
-        elif str(column_name) == "CUR_REC_IND":
+        elif column_name == "CUR_REC_IND":
             has_cur_rec_ind = True
-        elif str(column_name) == "CURRENT_RECORD_IND":
+        elif column_name == "CURRENT_RECORD_IND":
             has_current_record_ind = True
-        elif str(column_name).endswith("_KEY") and (column_name != "LABEL_KEY" and table_name != "D_TRANSLATION"):
-            key_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " > -1" 
+        elif column_name.endswith("_KEY") and column_name != "LABEL_KEY" and table_nm != "D_TRANSLATION":
+            key_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + column_name + " > -1" 
             if not has_data(cursor,key_check_sql):
-                print ("\033[32m" + table_name + "." + column_name + "\033[0m \033[33mis all -1, please verify.\033[0m")
+                msg = "\033[32m" + table_nm + "." + column_name + "\033[0m \033[33mis all -1, please verify.\033[0m"
+                add_msg('column_check',table_nm,column_name,msg,messager)
+                #print ("\033[32m" + table_nm + "." + column_name + "\033[0m \033[33mis all -1, please verify.\033[0m")
             
             # for KEYs, check if there is NULL value, which should NOT
-            null_value_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " IS NULL" 
+            null_value_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + column_name + " IS NULL" 
             if has_data(cursor,null_value_check_sql):
-                print ("\033[32m" + table_name + "." + column_name + "\033[0m has \033[22mNULL\033[0m value, please verify.")
+                msg = "\033[32m" + table_nm + "." + column_name + "\033[0m has \033[22mNULL\033[0m value, please verify."
+                add_msg('column_check',table_nm,column_name,msg,messager)
+                #print ("\033[32m" + table_nm + "." + column_name + "\033[0m has \033[22mNULL\033[0m value, please verify.")
             
-            if str(column_name).endswith("_DATE_KEY") or str(column_name).endswith("_TIME_KEY") or str(column_name).endswith("ITEM_KEY") or str(column_name).endswith("ORDER_KEY"):
-                check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name + " = -1 AND " + pk_column + " > 0;"
+            if column_name.endswith("_DATE_KEY") or column_name.endswith("_TIME_KEY") or column_name.endswith("ITEM_KEY") or column_name.endswith("ORDER_KEY"):
+                check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + column_name + " = -1 AND " + pk_column + " > 0;"
                 if has_data(cursor,check_sql):
-                    print ("\033[32m" + table_name + "." + column_name + "\033[0m has \033[22m-1\033[0m value, please verify.")
-        
-        row_count += 1
+                    msg = "\033[32m" + table_nm + "." + column_name + "\033[0m has \033[22m-1\033[0m value, please verify."
+                    add_msg('column_check',table_nm,column_name,msg,messager)
+                    #print ("\033[32m" + table_nm + "." + column_name + "\033[0m has \033[22m-1\033[0m value, please verify.")
 
-    check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,old_table_name,business_key_conf)
-    table_counter += table_count
+    check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,table_nm,business_key_conf,messager)
+    table_counter += table_counter
 
                
-def check_data(table_list, business_key_conf,table_counter,message):
+def check_data(table_nm, business_key_conf,table_counter,messager):
     """
     1. If columns is key, validate if it's all -1.
     2. Validate if column is null.
     3. Validate if there are duplicates on awo_id/mart_source_id or business keys.
     """
     with UseSqlserverDB(TARGET_DB) as cursor:
-
+        '''
         tb_list = "'"
         for table in table_list:
             tb_list += str(table) + "','"
         tb_list = tb_list[:len(tb_list)-2]
+        '''
 
-        check_minus_one(cursor, table_list,message)
-        #check_translation(cursor, tb_list,message)
-        check_column(cursor, tb_list, business_key_conf,table_counter,message)
+        check_default_row(cursor, table_nm, messager)
+        check_translation(cursor, table_nm, messager)
+        check_columns(cursor, table_nm, business_key_conf, table_counter, messager)
     
     #return table_counter
 
 if __name__ == '__main__':
 
-    with UseSqlserverDB(TARGET_DB) as cursor:
-        tables_result = search_empty_tables(cursor,table_list)
+    
+        tables_result = search_empty_tables(table_list,messager)
 
         if tables_result[2]:
             print("These following table(s) will not be been validated this time:\n")
@@ -322,9 +323,10 @@ if __name__ == '__main__':
             
             #check_data(cursor, tables_result[0],business_key_conf)
             print("\n\nThere are "+str(tables_result[1])+" empty table(s).")
-            print(message['message'])
+            
             if table_counter:
-                
+                messager = messager.sort_values(by=['msg_type','table_nm','column_nm'])
+                print(messager['messager'])
                 print(str(table_counter)+" non-empty table(s) verified.")
 
         else:
