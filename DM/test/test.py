@@ -1,20 +1,14 @@
-import json
+import pandas as pd
+
+#message = pd.DataFrame(('1','test','tt','dd'), columns=['msg_type','table_nm','column_nm','msg'])
 
 
-'''
-f=open(r".\seed\business_key.json",'r')
-print(json.load(f))
-f.close()
+message = pd.DataFrame({
 
+'msg_type':'1',
+'table_nm':'test',
+'column_nm':'tt',
+'msg':'tttttttttt'
 
-t=file(r'.\seed\business_key.json')
-test = json.load(f)
-'''
-
-filename = r'.\seed\business_key.json'
-with open(filename) as f:
-    t = json.load(f)
-
-    for i in t:
-        pass
-    pass
+})
+print(message['msg'])
