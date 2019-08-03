@@ -36,6 +36,7 @@ class MyThread(threading.Thread):
     def __init__(self, table_nm, business_key_conf):
         super(MyThread, self).__init__() 
         self.table_nm = table_nm
+        self.name = table_nm
         self.business_key_conf = business_key_conf
 
     def run(self):
