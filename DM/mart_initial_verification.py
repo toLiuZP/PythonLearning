@@ -20,7 +20,7 @@ from tool.tool import file_name,logger,identify_backup_tables
 
 TARGET_DB = acct.QA_CO_HF_MART
 table_list = []
-#table_list = ['B_CUSTOMER_MESSAGE']
+#table_list = ['B_HUNTER_EDUCATION_VERIFICATION']
 
 
 filename = r'.\seed\business_key.json'
@@ -104,12 +104,12 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
         for entity in business_key_conf:
             if entity['TABLE'] == table_name:
                 find_table_ind = True
-        if find_table_ind:
-            duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
-            has_duplicate = has_data(cursor,duplicate_check_sql)
-            if has_duplicate:
-                print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
-        else:
+            
+                duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
+                has_duplicate = has_data(cursor,duplicate_check_sql)
+                if has_duplicate:
+                    print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
+        if not find_table_ind:    
             print("No conf for table: " + table_name)
     
     else:
@@ -117,12 +117,12 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
         for entity in business_key_conf:
             if entity['TABLE'] == table_name:
                 find_table_ind = True
-        if find_table_ind:
-            duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
-            has_duplicate = has_data(cursor,duplicate_check_sql)
-            if has_duplicate:
-                print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
-        else:
+        
+                duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + " HAVING COUNT(*) > 1"
+                has_duplicate = has_data(cursor,duplicate_check_sql)
+                if has_duplicate:
+                    print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
+        if not find_table_ind:
 
             if has_mart_source_id == True:
                 duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_name + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
@@ -169,7 +169,7 @@ def check_column(cursor, tb_list, business_key_conf):
         
         # testing code #
         print("checking:  \033[32m" + table_name + "\033[0m.\033[34m" + column_name+"\033[0m")
-        if column_name == 'B_HUNTER_EDUCATION_VERIFICATION_KEY':
+        if column_name == 'D_BOND_ISSUER_KEY':
             print('test')
             pass
         
