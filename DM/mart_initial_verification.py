@@ -18,7 +18,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.DEV_NC_CAMPING_MART
+TARGET_DB = acct.QA_CO_HF_MART
 table_list = []
 #table_list = ['B_CUSTOMER_MESSAGE']
 
@@ -166,13 +166,13 @@ def check_column(cursor, tb_list, business_key_conf):
         table_name = item[0]
         column_name = item[1]
 
-        '''
+        
         # testing code #
         print("checking:  \033[32m" + table_name + "\033[0m.\033[34m" + column_name+"\033[0m")
-        if column_name == 'GIFT_CARD_ITEM_KEY':
+        if column_name == 'B_HUNTER_EDUCATION_VERIFICATION_KEY':
             print('test')
             pass
-        '''
+        
 
         if row_count == 0:
             pk_column = column_name
