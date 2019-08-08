@@ -59,7 +59,10 @@ class UseSqlserverDBPandas:
 def query_first_value(cursor,sql):
     cursor.execute(sql)
     rs = cursor.fetchall()
-    return rs[0][0]
+    if len(rs) > 0:
+        return rs[0][0]
+    else:
+        return False
 
 
 def has_data(cursor,sql):
@@ -73,3 +76,5 @@ def query(cursor,sql):
     rs = cursor.fetchall()
     return rs
     
+def execute(cursor,sql):
+    cursor.execute(sql)

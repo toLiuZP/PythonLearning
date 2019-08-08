@@ -18,9 +18,9 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.QA_CO_HF_MART
+TARGET_DB = acct.QA_TX_CAMPING_MART
 table_list = []
-#table_list = ['B_HUNTER_EDUCATION_VERIFICATION']
+table_list = ['D_ACCOUNT','D_ADDRESS']
 
 
 filename = r'.\seed\business_key.json'
@@ -86,16 +86,6 @@ def check_translation(cursor, checking_list):
         if has_data(cursor,check_sql):
             print ("\n\033[32m" + table_name + "." + column_name_str + "\033[0m has un-translate string, please verify. SELECT TOP 100 " + column_name_str + " FROM " + table_name + " WITH(NOLOCK) WHERE " + column_name_str + " LIKE '%<<translatable%'\n")
 
-def check_conf_duplicate(cursor, table_name, business_key_conf):
-        
-    for entity in business_key_conf:
-            if entity['TABLE'] == table_name:
-                duplicate_check_sql = "SELECT " + entity['COLUMNS'] + " FROM " + entity['TABLE'] + entity['WHERE'] + " GROUP BY " + entity['COLUMNS'] + "HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
-                if has_duplicate:
-                    print ("\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n")
-            else:
-                print("No conf for table: " + entity['TABLE'])
 
 def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_current_record_ind,table_name,business_key_conf):
 
@@ -126,25 +116,25 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
 
             if has_mart_source_id == True:
                 duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_name + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
             if has_awo_id == True and has_cur_rec_ind == True:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
             if has_awo_id == True and has_current_record_ind == True:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
             elif has_awo_id == True and has_current_record_ind == False and has_cur_rec_ind == False:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_name + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     print ("\n\033[31m" + table_name + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_name + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n")
 
@@ -168,10 +158,12 @@ def check_column(cursor, tb_list, business_key_conf):
 
         
         # testing code #
+        
         print("checking:  \033[32m" + table_name + "\033[0m.\033[34m" + column_name+"\033[0m")
-        if column_name == 'D_BOND_ISSUER_KEY':
+        '''if column_name == 'D_BOND_ISSUER_KEY':
             print('test')
             pass
+        '''
         
 
         if row_count == 0:
@@ -235,7 +227,7 @@ def check_data(cursor, table_list, business_key_conf):
         tb_list += str(table) + "','"
     tb_list = tb_list[:len(tb_list)-2]
 
-    #check_minus_one(cursor, table_list)
+    check_minus_one(cursor, table_list)
     #check_translation(cursor, tb_list)
     table_counter = check_column(cursor, tb_list, business_key_conf)
     

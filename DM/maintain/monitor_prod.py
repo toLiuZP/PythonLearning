@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.append(os.getcwd())
 import datetime
 
 from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas

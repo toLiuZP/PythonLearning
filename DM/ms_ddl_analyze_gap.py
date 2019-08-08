@@ -12,7 +12,6 @@ import db_connect.db_operator as DB
 from tool.tool import file_name,logger,identify_backup_tables
 
 SEED_FILE = r".\seed\DDL_GAP_AB.xlsx"
-nameTime = time.strftime('%Y%m%d_%H%M%S')
 excelName = file_name('DDL_GAP_AB','xlsx')
 workbook = load_workbook(SEED_FILE)
 ddl_sheet = workbook.get_sheet_by_name('DDL')

@@ -14,17 +14,18 @@ import re
 import threading 
 os.system("")
 
+
+
 import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.QA_CO_HF_MART
+TARGET_DB = acct.QA_TX_CAMPING_MART
 table_list = []
-#table_list = ['D_CONTACT','D_CUSTOMER']
-
-#file_lock = threading.Lock()
-#table_counter = 0
 messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
+#table_list = ['B_DAILY_ENTRANCE_VEHICLE_OCCUPANT']
+
+
 
 filename = r'.\seed\business_key.json'
 with open(filename) as f:
@@ -134,7 +135,9 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
                     msg = "\n\033[31m" + entity['TABLE'] + " has duplicate data on " + entity['COLUMNS'] + "\033[0m, please check by \n <<  \033[33m" + duplicate_check_sql + "\033[0m  >>\n"
                     add_msg('4 duplicates',table_nm,entity['COLUMNS'],msg)
         if not find_table_ind:
-            print("No conf for table: " + table_nm)
+            msg = "No conf for table: " + table_nm
+            add_msg('4 duplicates',table_nm,'0',msg)
+            
     
     else:
         find_table_ind = False
@@ -150,28 +153,28 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
 
             if has_mart_source_id == True:
                 duplicate_check_sql = "SELECT MART_SOURCE_ID FROM " + table_nm + " GROUP BY MART_SOURCE_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     msg = "\n\033[31m" + table_nm + " has duplicate data on MART_SOURCE_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE MART_SOURCE_ID = " + str(has_duplicate) + "\033[0m  >>\n"
                     add_msg('4 duplicates',table_nm,'MART_SOURCE_ID',msg)
 
             if has_awo_id == True and has_cur_rec_ind == True:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_nm + " WHERE CUR_REC_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     msg = "\n\033[31m" + table_nm + " has duplicate data on AWO_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE AWO_ID = " + str(has_duplicate) + "\033[0m  >>\n"
                     add_msg('4 duplicates',table_nm,'AWO_ID',msg)
 
             if has_awo_id == True and has_current_record_ind == True:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_nm + " WHERE CURRENT_RECORD_IND = 1 GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     msg = "\n\033[31m" + table_nm + " has duplicate data on AWO_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE AWO_ID = " + str(has_duplicate) + "\033[0m  >>\n"
                     add_msg('4 duplicates',table_nm,'AWO_ID',msg)
 
             elif has_awo_id == True and has_current_record_ind == False and has_cur_rec_ind == False:
                 duplicate_check_sql = "SELECT AWO_ID FROM " + table_nm + " GROUP BY AWO_ID HAVING COUNT(*) > 1"
-                has_duplicate = has_data(cursor,duplicate_check_sql)
+                has_duplicate = query_first_value(cursor,duplicate_check_sql)
                 if has_duplicate:
                     msg = "\n\033[31m" + table_nm + " has duplicate data on AWO_ID \033[0m, please check by \n <<  \033[33mSELECT * FROM " + table_nm + " WHERE AWO_ID = " + str(has_duplicate) + "\033[0m  >>\n"
                     add_msg('4 duplicates',table_nm,'AWO_ID',msg)
@@ -179,7 +182,7 @@ def check_duplicate(cursor,has_mart_source_id,has_awo_id,has_cur_rec_ind,has_cur
 
 def check_columns(cursor, table_nm, business_key_conf):
 
-    generate_raw_list = "SELECT table_name,column_name,ordinal_position FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name = '" + table_nm + "' ORDER BY ordinal_position"
+    generate_raw_list = "SELECT table_name,column_name,ordinal_position, data_type FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name = '" + table_nm + "' ORDER BY ordinal_position"
     rs_list = query(cursor,generate_raw_list)
 
     has_mart_source_id = False
@@ -190,12 +193,15 @@ def check_columns(cursor, table_nm, business_key_conf):
     for item in rs_list:
         column_name = str(item[1])
         position = item[2]
+        #data_type = str(item[3])
         
-        # testing code #
+        # Log #
+        '''
         print("checking:  \033[32m" + table_nm + "\033[0m.\033[34m" + column_name+"\033[0m")
         if column_name == 'CUSTOMER_NB':
             print('test')
             pass
+        '''
 
         if position == 1:
             pk_column = column_name
@@ -252,11 +258,7 @@ def check_data(table_nm, business_key_conf):
 if __name__ == '__main__':
     
         tables_result = search_empty_tables(table_list)
-
-        if tables_result[2]:
-            print("These following table(s) will not be been validated this time:\n")
-            for table_nm in tables_result[2]:
-                print(table_nm)
+        
         if len(tables_result[0]) > 0:
             check_data_threading(tables_result[0])
 
@@ -268,6 +270,12 @@ if __name__ == '__main__':
                 print(str(len(messager['table_nm'].unique()))+" non-empty table(s) verified.")
         else:
             print("\n\n\033[33mAll "+str(tables_result[1])+" table(s) are empty.\033[0m")
+
+        if tables_result[2]:
+            print("These following table(s) will not be been validated this time:\n")
+            for table_nm in tables_result[2]:
+                print(table_nm)
+    
     
 
 

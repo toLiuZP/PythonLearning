@@ -11,3 +11,4 @@ DM/seed/SYNC_TARGET_DB.sql
 DM/seed/release_scripts.sql
 DM/seed/Domain Data Template.xlsx
 
+DM/conf/acct_focus.py
