@@ -23,6 +23,7 @@ import db_connect.db_operator as DB
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query, execute
 from tool.tool import file_name,logger,identify_backup_tables
 from tool.send_mail import send_mail_outlook_html as mail
+pd.set_option('max_colwidth',-1)
 
 SEED_FILE = r"D:\Work\02. SVN\Aspira\SQL\AF_Data_Mart\trunk\DataModels\NJ_HF_MART.xlsx"
 seed_workbook = load_workbook(SEED_FILE)
@@ -55,6 +56,7 @@ def read_mapping(workbook):
 def create_base(workbook,meta):
 
     all_sheet = workbook.create_sheet(title = 'ALL_DDL')
+    test_sheet = workbook.create_sheet(title = 'ALL')
     all_pd = pd.DataFrame(columns = ['ref_table','ref_column','typename','precision','scale','max_length','nullable','impact_list'])
 
     with UseSqlserverDB(TARGET_DB) as cursor:
@@ -84,6 +86,7 @@ def create_base(workbook,meta):
                 nullable = str(row[6])
                 impact_table = str(row[7])
                 sheet.append([ref_table,ref_column,typename,precision,scale,max_length,nullable])
+                test_sheet.append([ref_table,ref_column,typename,precision,scale,max_length,nullable,impact_table])
                 all_pd = all_pd.append(pd.DataFrame({'ref_table':[ref_table],'ref_column':[ref_column],'typename':[typename],'precision':[precision],'scale':[scale],'max_length':[max_length],'nullable':[nullable],'impact_list':[impact_table]}),ignore_index=True)
     
     all_pd = all_pd.sort_values(by=['ref_table','ref_column'])
@@ -122,7 +125,6 @@ def create_base(workbook,meta):
                 else:
                     all_sheet.append([last_table_name,last_column_name,last_type_name,last_precision,last_scale,last_length,last_nullable,table_list])
                     table_list = ''
-                    table_list = last_impact_table_name
                     last_table_name = row['ref_table']
                     last_column_name = row['ref_column']
                     last_type_name = row['typename']
@@ -131,6 +133,7 @@ def create_base(workbook,meta):
                     last_length = row['max_length']
                     last_nullable = row['nullable']
                     last_impact_table_name = row['impact_list']
+                    table_list = last_impact_table_name
 
 
 @logger
@@ -165,13 +168,14 @@ def highlight_last_row(s):
 
 if __name__ == '__main__':
 
-    #read_mapping(seed_workbook)
-    #create_base(base_workbook,meta)
+    read_mapping(seed_workbook)
+    create_base(base_workbook,meta)
     
-    #base_workbook.save(excelName)
+    base_workbook.save(excelName)
 
+    '''
     change_pd = validate_base(base_workbook,log_workbook,LOG_FILE)
-    pd.set_option('max_colwidth',-1)
+    
 
     if not change_pd.empty:
         body = """
@@ -190,3 +194,4 @@ if __name__ == '__main__':
         attachments = [os.getcwd()+LOG_FILE[1:]]
         #mail('NJ Source Change List',['zongpei.liu@aspiraconnect.com;zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Gary.Zhou@aspiraconnect.com;Tim.Wang@aspiraconnect.com;Kelvin.Wang@aspiraconnect.com'],body,attachments)
         mail('NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
+    '''
