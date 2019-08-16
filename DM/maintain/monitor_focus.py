@@ -168,12 +168,12 @@ def highlight_last_row(s):
 
 if __name__ == '__main__':
 
-    read_mapping(seed_workbook)
-    create_base(base_workbook,meta)
+    #read_mapping(seed_workbook)
+    #create_base(base_workbook,meta)
     
-    base_workbook.save(excelName)
+    #base_workbook.save(excelName)
 
-    '''
+    
     change_pd = validate_base(base_workbook,log_workbook,LOG_FILE)
     
 
@@ -194,4 +194,4 @@ if __name__ == '__main__':
         attachments = [os.getcwd()+LOG_FILE[1:]]
         #mail('NJ Source Change List',['zongpei.liu@aspiraconnect.com;zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Gary.Zhou@aspiraconnect.com;Tim.Wang@aspiraconnect.com;Kelvin.Wang@aspiraconnect.com'],body,attachments)
         mail('NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
-    '''
+    
