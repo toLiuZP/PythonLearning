@@ -8,18 +8,15 @@ import pandas as pd
 import datetime
 from openpyxl import Workbook
 from openpyxl import load_workbook
-from openpyxl.writer.excel import ExcelWriter
-import time
-import openpyxl.styles as sty
 import os
 import sys
 sys.path.append(os.getcwd())
 
 import conf.acct_focus as acct
-import db_connect.db_operator as DB
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query, execute
-from tool.tool import file_name,logger,identify_backup_tables
+from tool.tool import logger
 from tool.send_mail import send_mail_outlook_html as mail
+from tool.TSQL import query_meta_data
 pd.set_option('max_colwidth',-1)
 
 MINITOR_TABLE_LIST = [
@@ -82,30 +79,25 @@ MINITOR_TABLE_LIST = [
 'TransactionHeader'
 ]
 
-BASE_FILE = r".\seed\Focus_Migration_Source_Base.xlsx"
+BASE_FILE = r".\maintain\monitor\Focus_Migration_Source_Base.xlsx"
 base_workbook = load_workbook(BASE_FILE)
 
-LOG_FILE = r".\seed\Focus_Migration_Change_Log.xlsx"
+LOG_FILE = r".\maintain\monitor\Focus_Migration_Change_Log.xlsx"
 log_workbook = load_workbook(LOG_FILE)
 
-TARGET_DB = acct.QA_NJDMAQA
+TARGET_DB = acct.UAT_NJSTAGEUAT
 
 
 def create_base():
     global MINITOR_TABLE_LIST
-
+    
     table_list = ''
     for table_name in MINITOR_TABLE_LIST:
         table_list += ",'" + table_name + "'"
 
-    sql = "SELECT a.name as ref_table ,b.name as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable FROM sys.all_objects a inner join sys.all_columns b on a.object_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype WHERE a.name in (" + table_list[1:] +") ORDER BY 1,2"
-
-    with UseSqlserverDB(TARGET_DB) as cursor:
-        rs = query(cursor,sql)
-
-        df = pd.DataFrame(rs)
-        df.columns = ['ref_table','ref_column','typename','precision','scale','max_length','nullable']
-        df.to_excel(BASE_FILE,sheet_name = "DDL",index=False)
+    df = pd.DataFrame(query_meta_data(table_list,TARGET_DB))
+    df.columns = ['ref_table','ref_column','typename','precision','scale','max_length','nullable']
+    df.to_excel(BASE_FILE,sheet_name = "DDL",index=False)
 
 
 @logger
@@ -115,14 +107,10 @@ def validate_base(workbook,log_wb,LOG_FILE):
     log_sheet = log_wb.get_sheet_by_name('Log')
     all_sheet = workbook.get_sheet_by_name('DDL')
     table_list = ''
-    rs =[]
     for cell in all_sheet['A']:
         table_list = table_list + ",'" + cell.value + "'"
-
-    sql = "SELECT DISTINCT a.name as ref_table ,b.name as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable FROM sys.all_objects a inner join sys.all_columns b on a.object_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype WHERE a.name in (" + table_list[1:] +") ORDER BY 1,2"
-
-    with UseSqlserverDB(TARGET_DB) as cursor:
-        rs = query(cursor,sql)
+ 
+    rs = query_meta_data(table_list,TARGET_DB)
 
     for row in all_sheet.rows:
         for line in rs:
@@ -135,8 +123,8 @@ def validate_base(workbook,log_wb,LOG_FILE):
     log_wb.save(LOG_FILE)
     return change_pd
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     
     change_pd = validate_base(base_workbook,log_workbook,LOG_FILE)
     if not change_pd.empty:
@@ -147,7 +135,15 @@ if __name__ == '__main__':
         <html>
         <body>""" + change_pd.to_html(index_names=False) + '</body></html>' 
         attachments = [os.getcwd()+LOG_FILE[1:]]
-        #mail('NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Aspira_DMA_AspiraFocus_Migration@aspiraconnect.com'],body,attachments)
-        mail('TESTING: NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
+        #mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Aspira_DMA_AspiraFocus_Migration@aspiraconnect.com'],body,attachments)
+        mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
         create_base()
+    else :
+        body = """
+        Hi team,<br><br>
+            Everything is good for NJ Migration Tables List.
+        <html>
+        <body> </body></html>"""
+        mail('(Auto Generation) All good for NJ Migration Tables List',['zongpei.liu@aspiraconnect.com'],body)
+        
     

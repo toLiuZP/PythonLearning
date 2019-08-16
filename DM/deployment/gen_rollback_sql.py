@@ -5,6 +5,8 @@
 #   If new indexes created, drop the new indexes
 #   If new columns added, drop these new columns
 #   If drop or alter exist columns, need manually modify.
+#   CHECK DMA-4489 TXCM1903.sql
+
 ##
 
 import os

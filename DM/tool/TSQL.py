@@ -1,8 +1,9 @@
 
 import sys
 
-from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
+from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas, query
 
+'''
 def inquery_single_row(query, cursor):
     
     #print(query)    
@@ -85,5 +86,17 @@ def check_minus_one_rows(cursor, checking_list):
             rs_minus_one = cursor.fetchall()
             if rs_minus_one[0][0] != -1:
                 print ("\033[32m" + table_name + "\033[0m does not have -1 key row, please check.") #by using:\n\033[33m" + sql_text+"\033[0m")
+'''
 
 
+
+
+def query_meta_data(table_list,target_db):
+    
+    if table_list[0:1] == ',':
+        table_list = table_list[1:]
+
+    sql = "SELECT a.name as ref_table ,b.name as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable FROM sys.all_objects a inner join sys.all_columns b on a.object_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype WHERE a.name in (" + table_list +") ORDER BY 1,2"
+
+    with UseSqlserverDB(target_db) as cursor:
+        return query(cursor,sql)

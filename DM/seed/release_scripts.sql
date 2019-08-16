@@ -1,1900 +1,1237 @@
+PRINT '[INFO] USING DB TX_CAMPING_MART'
 USE TX_CAMPING_MART
-GO
-
-IF NOT EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'D_ORDER_BK20190729')
-BEGIN
-	SELECT * INTO D_ORDER_BK20190729 FROM D_ORDER WITH(NOLOCK)
-	PRINT 'Backuped D_ORDER'
-END
-
-IF NOT EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'F_ORDER_ITEM_BK20190729')
-BEGIN
-	SELECT * INTO F_ORDER_ITEM_BK20190729 FROM F_ORDER_ITEM WITH(NOLOCK)
-	PRINT 'Backuped F_ORDER_ITEM'
-END
-
--- Transaction message
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_ORDER') AND name='COMMENT_TXT')
-BEGIN
-	ALTER TABLE D_ORDER DROP COLUMN COMMENT_TXT
-	PRINT '[INFO] DROPPED COLUMN [DBO].[D_ORDER].[COMMENT_TXT]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.F_ORDER_ITEM') AND name='COMMENT_TXT')
-BEGIN
-	ALTER TABLE F_ORDER_ITEM DROP COLUMN COMMENT_TXT
-	PRINT '[INFO] DROPPED COLUMN [DBO].[F_ORDER_ITEM].[COMMENT_TXT]'
-END
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.F_ORDER_ITEM') AND name='ORDER_PROCESS_STATUS_KEY')
-BEGIN
-	ALTER TABLE F_ORDER_ITEM ADD ORDER_PROCESS_STATUS_KEY bigint NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Process Status Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_ORDER_ITEM', 'column', 'ORDER_PROCESS_STATUS_KEY'
-	PRINT '[INFO] ADD COLUMN [DBO].[F_ORDER_ITEM].[ORDER_PROCESS_STATUS_KEY]'
-END
-
---INDEX: F_ORDER_ITEM_ORDER_PROCESS_STATUS_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_ORDER_ITEM]','U') AND i.name = 'F_ORDER_ITEM_ORDER_PROCESS_STATUS_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [F_ORDER_ITEM_ORDER_PROCESS_STATUS_KEY_IX] ON [dbo].[F_ORDER_ITEM](ORDER_PROCESS_STATUS_KEY) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_ORDER_ITEM].[F_ORDER_ITEM_ORDER_PROCESS_STATUS_KEY_IX]'
-END
-GO
 
 
-IF EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'D_SITE_ATTRIBUTES')
-BEGIN
-	EXEC sp_rename 'dbo.D_SITE_ATTRIBUTES', 'D_SITE_ATTRIBUTES20190729'; 
-	PRINT 'Backuped D_SITE_ATTRIBUTES'
-END
+--------------------------------------------------------------------------------
+-- START: D_BATCH.sql
 
 /*
-
- * NOTES: Creates B_ORDER_TRANS_MESSAGE bridge for AspiraOne datamart 
+ * NOTES: Creates D_BATCH dimension for AspiraOne datamart 
  *
  * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/17/2019  DMA-3521  Zongpei Liu	  Initialization.
-
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4205  Nat Nie          Initialization.
 */
 
 SET NOCOUNT ON
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED
 
-IF OBJECT_ID('DBO.B_ORDER_TRANS_MESSAGE') IS NULL
+IF OBJECT_ID('DBO.D_BATCH') IS NULL
 BEGIN
-	CREATE TABLE DBO.B_ORDER_TRANS_MESSAGE(
-		ORDER_TRANS_MESSAGE_KEY              bigint           IDENTITY(1,1),
-		ORDER_KEY                            bigint           NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_TXT                          varchar(255)     NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_ORDER_TRANS_MESSAGE PRIMARY KEY CLUSTERED (ORDER_TRANS_MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
+CREATE TABLE DBO.D_BATCH(
+    BATCH_KEY                   bigint            IDENTITY(1,1),
+    BATCH_DTM                   datetime          NULL,
+    BATCH_STATUS                varchar(50)       NULL,
+    COUNT_OF_PAYMENTS           int               NULL,
+    COUNT_OF_REFUNDS            int               NULL,
+    COUNT_OF_TRANSACTIONS       int               NULL,
+    TOTAL_PAYMENT_AMT           decimal(38, 6)    NULL,
+    TOTAL_REFUND_AMT            decimal(38, 6)    NULL,
+    TOTAL_AMT                   decimal(38, 6)    NULL,
+    PROCESSED_DTM               datetime          NULL,
+    PROCESSING_USER_KEY         bigint            NULL,
+    PROCESSING_LOCATION_KEY     bigint            NULL,
+    MANUAL_PROCESSING_REASON    varchar(4000)     NULL,
+    VOID_DTM                    datetime          NULL,
+    VOID_USER_KEY               bigint            NULL,
+    VOID_LOCATION_KEY           bigint            NULL,
+    VOID_REASON                 varchar(4000)     NULL,
+    MART_SOURCE_ID              bigint            NULL,
+    MART_CREATED_DTM            datetime          NULL,
+    MART_MODIFIED_DTM           datetime          NULL,
+    CONSTRAINT PK_D_BATCH PRIMARY KEY CLUSTERED (BATCH_KEY)
+)ON TX_CAMPING_MART_DATA
 
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Transaction Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'ORDER_TRANS_MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Key: surrogate key uniquely identifying this record in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'ORDER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Order_Transaction_Message: order transaction message.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE'
 
-	PRINT '[INFO] CREATED TABLE [DBO].[B_ORDER_TRANS_MESSAGE]'
-END
+exec sys.sp_addextendedproperty 'MS_Description', 'Batch Key: surrogate key used to uniquely identify a batch record in the data mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'BATCH_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Batch Date: batch date.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'BATCH_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Batch Status: batch status.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'BATCH_STATUS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count of Payments: total number of payments of the batch.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'COUNT_OF_PAYMENTS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count of Refunds: total number of refunds of the batch.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'COUNT_OF_REFUNDS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count of Transactions: total number of transactions of the batch.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'COUNT_OF_TRANSACTIONS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total Payment Amount: total payment amount of  the batch.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'TOTAL_PAYMENT_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total Refund Amount: total refund amount of  the batch.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'TOTAL_REFUND_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total  Amount: total amount of  the batch.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'TOTAL_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Processed Date: processed date.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'PROCESSED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'PROCESSING_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'PROCESSING_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Manual Processing Reason: manual processing reason.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'MANUAL_PROCESSING_REASON'
+exec sys.sp_addextendedproperty 'MS_Description', 'Void Date: void date.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'VOID_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'VOID_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'VOID_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Void Reason: void reason.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'VOID_REASON'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'D_BATCH', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Batch: credit card batch.', 'schema', 'dbo', 'table', 'D_BATCH'
 
---INDEX: B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
+PRINT '[INFO] CREATED TABLE [DBO].[D_BATCH]'
 
---INDEX: B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([ORDER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX]'
 END
 GO
 
+
+--INDEX: D_BATCH_PROCESSING_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_BATCH]','U') AND i.name = 'D_BATCH_PROCESSING_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_BATCH_PROCESSING_USER_KEY_IX] ON [dbo].[D_BATCH]([PROCESSING_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_BATCH].[D_BATCH_PROCESSING_USER_KEY_IX]'
+END
+GO
+
+--INDEX: D_BATCH_PROCESSING_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_BATCH]','U') AND i.name = 'D_BATCH_PROCESSING_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_BATCH_PROCESSING_LOCATION_KEY_IX] ON [dbo].[D_BATCH]([PROCESSING_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_BATCH].[D_BATCH_PROCESSING_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: D_BATCH_VOID_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_BATCH]','U') AND i.name = 'D_BATCH_VOID_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_BATCH_VOID_USER_KEY_IX] ON [dbo].[D_BATCH]([VOID_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_BATCH].[D_BATCH_VOID_USER_KEY_IX]'
+END
+GO
+
+--INDEX: D_BATCH_VOID_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_BATCH]','U') AND i.name = 'D_BATCH_VOID_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_BATCH_VOID_LOCATION_KEY_IX] ON [dbo].[D_BATCH]([VOID_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_BATCH].[D_BATCH_VOID_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: D_BATCH_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_BATCH]','U') AND i.name = 'D_BATCH_MART_SOURCE_ID_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_BATCH_MART_SOURCE_ID_IX] ON [dbo].[D_BATCH]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_BATCH].[D_BATCH_MART_SOURCE_ID_IX]'
+END
+GO
+
+
+GO
+
+-- END: D_BATCH.sql
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- START: D_RECONCILIATION_JOB.sql
 
 /*
-
-DO NOT deploy until TPWD CODE FREEZE finish
-
- * NOTES: Creates R_ORDER_PROCESS_STATUS dimension for AspiraOne datamart 
+ * NOTES: Creates D_RECONCILIATION_JOB dimension for AspiraOne datamart 
  *
  * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 01/07/2019  DMA-2862  Zongpei Liu	  Initialization.
-*/
-
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.R_ORDER_PROCESS_STATUS') IS NULL
-BEGIN
-	CREATE TABLE DBO.R_ORDER_PROCESS_STATUS(
-		ORDER_PROCESS_STATUS_KEY     bigint          IDENTITY(1,1),
-		ORDER_PROCESS_STATUS_NM      varchar(512)    NULL,
-		MART_SOURCE_ID               bigint          NULL,
-		MART_CREATED_DTM             datetime        NULL,
-		MART_MODIFIED_DTM            datetime        NULL,
-		CONSTRAINT PK_R_ORDER_PROCESS_STATUS PRIMARY KEY CLUSTERED (ORDER_PROCESS_STATUS_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Process Status Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'R_ORDER_PROCESS_STATUS', 'column', 'ORDER_PROCESS_STATUS_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Process Status Name: valid statuses for orders (Pre Arrival, Checked In, Checked Out, Awarded, etc).', 'schema', 'dbo', 'table', 'R_ORDER_PROCESS_STATUS', 'column', 'ORDER_PROCESS_STATUS_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'R_ORDER_PROCESS_STATUS', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'R_ORDER_PROCESS_STATUS', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'R_ORDER_PROCESS_STATUS', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Process Status: the list of process statuses for orders (Pre Arrival, Checked In, Checked Out, Awarded, etc).', 'schema', 'dbo', 'table', 'R_ORDER_PROCESS_STATUS'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[R_ORDER_PROCESS_STATUS]'
-END
-GO
-
---INDEX: R_ORDER_PROCESS_STATUS_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[R_ORDER_PROCESS_STATUS]','U') AND i.name = 'R_ORDER_PROCESS_STATUS_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [R_ORDER_PROCESS_STATUS_MART_SOURCE_ID_IX] ON [dbo].[R_ORDER_PROCESS_STATUS]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[R_ORDER_PROCESS_STATUS].[R_ORDER_PROCESS_STATUS_MART_SOURCE_ID_IX]'
-END
-GO
-
-/*
-
- * NOTES: Creates B_ORDER_ITEM_TRANS_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/17/2019  DMA-3521  Zongpei Liu	  Initialization.
-
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4205  Nat Nie          Initialization.
 */
 
 SET NOCOUNT ON
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED
 
-IF OBJECT_ID('DBO.B_ORDER_ITEM_TRANS_MESSAGE') IS NULL
+IF OBJECT_ID('DBO.D_RECONCILIATION_JOB') IS NULL
 BEGIN
-	CREATE TABLE DBO.B_ORDER_ITEM_TRANS_MESSAGE(
-		ORDER_ITEM_TRANS_MESSAGE_KEY         bigint           IDENTITY(1,1),
-		ITEM_KEY                             bigint           NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_TXT                          varchar(255)     NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_ORDER_ITEM_TRANS_MESSAGE PRIMARY KEY CLUSTERED (ORDER_ITEM_TRANS_MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
+CREATE TABLE DBO.D_RECONCILIATION_JOB(
+    RECONCILIATION_JOB_KEY      bigint            IDENTITY(1,1),
+    RECONCILIATION_STATUS       varchar(50)       NULL,
+    RUN_DTM                     datetime          NULL,
+    END_DTM                     datetime          NULL,
+    COUNT_OF_TRANSACTIONS       int               NULL,
+    COUNT_OF_PAYMENTS           int               NULL,
+    COUNT_OF_REFUNDS            int               NULL,
+    TOTAL_AMT                   decimal(38, 6)    NULL,
+    TOTAL_PAYMENT_AMT           decimal(38, 6)    NULL,
+    TOTAL_REFUND_AMT            decimal(38, 6)    NULL,
+    FILE_NM                     varchar(100)      NULL,
+    RECONCILING_USER_KEY        bigint            NULL,
+    RECONCILING_LOCATION_KEY    bigint            NULL,
+    MART_SOURCE_ID              bigint            NULL,
+    MART_CREATED_DTM            datetime          NULL,
+    MART_MODIFIED_DTM           datetime          NULL,
+    CONSTRAINT PK_D_RECONCILIATION_JOB PRIMARY KEY CLUSTERED (RECONCILIATION_JOB_KEY)
+)ON TX_CAMPING_MART_DATA
 
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Item Transaction Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'ORDER_ITEM_TRANS_MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Key: surrogate key uniquely identifying this record in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Order_Item_Transaction_Message: order item transaction message.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE'
 
-	PRINT '[INFO] CREATED TABLE [DBO].[B_ORDER_ITEM_TRANS_MESSAGE]'
-END
 
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
+exec sys.sp_addextendedproperty 'MS_Description', 'Reconciliation Job Key: surrogate key used to uniquely identify a reconciliation job record in the data mart.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'RECONCILIATION_JOB_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Reconciliation Job Status: reconciliation job status.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'RECONCILIATION_STATUS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Run Date: run date.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'RUN_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'End Date: end date.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'END_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count of Transactions: total number of transactions of the reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'COUNT_OF_TRANSACTIONS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count of Payments: total number of payments of the reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'COUNT_OF_PAYMENTS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count of Refunds: total number of refunds of the reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'COUNT_OF_REFUNDS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total  Amount: total amount of  the  reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'TOTAL_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total Payment Amount: total payment amount of  the  reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'TOTAL_PAYMENT_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total Refund Amount: total refund amount of  the  reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'TOTAL_REFUND_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'File Name: file name.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'FILE_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'RECONCILING_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'RECONCILING_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Reconciliation Job: reconciliation job.', 'schema', 'dbo', 'table', 'D_RECONCILIATION_JOB'
 
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX]'
-END
-GO
 
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
 
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX]'
+
+PRINT '[INFO] CREATED TABLE [DBO].[D_RECONCILIATION_JOB]'
+
 END
 GO
 
 
--- Occupant type
-/* back original table */
-IF NOT EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'D_DAILY_ENTRANCE_BK20190729')
+--INDEX: D_RECONCILIATION_JOB_RECONCILING_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_RECONCILIATION_JOB]','U') AND i.name = 'D_RECONCILIATION_JOB_RECONCILING_USER_KEY_IX')
 BEGIN
-	SELECT * INTO D_DAILY_ENTRANCE_BK20190729 FROM D_DAILY_ENTRANCE WITH(NOLOCK)
-	PRINT 'Backuped D_DAILY_ENTRANCE'
+    CREATE NONCLUSTERED INDEX [D_RECONCILIATION_JOB_RECONCILING_USER_KEY_IX] ON [dbo].[D_RECONCILIATION_JOB]([RECONCILING_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_RECONCILIATION_JOB].[D_RECONCILIATION_JOB_RECONCILING_USER_KEY_IX]'
 END
+GO
 
-IF NOT EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'D_RESERVATION_BK20190729')
+--INDEX: D_RECONCILIATION_JOB_RECONCILING_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_RECONCILIATION_JOB]','U') AND i.name = 'D_RECONCILIATION_JOB_RECONCILING_LOCATION_KEY_IX')
 BEGIN
-	SELECT * INTO D_RESERVATION_BK20190729 FROM D_RESERVATION WITH(NOLOCK)
-	PRINT 'Backuped D_RESERVATION'
+    CREATE NONCLUSTERED INDEX [D_RECONCILIATION_JOB_RECONCILING_LOCATION_KEY_IX] ON [dbo].[D_RECONCILIATION_JOB]([RECONCILING_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_RECONCILIATION_JOB].[D_RECONCILIATION_JOB_RECONCILING_LOCATION_KEY_IX]'
 END
+GO
 
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_RESERVATION') AND name='CHECKIN_IND')
+--INDEX: D_RECONCOLIATION_JOB_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_RECONCILIATION_JOB]','U') AND i.name = 'D_RECONCOLIATION_JOB_MART_SOURCE_ID_IX')
 BEGIN
-        ALTER TABLE D_RESERVATION DROP COLUMN CHECKIN_IND
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_RESERVATION].[CHECKIN_IND]'
+    CREATE NONCLUSTERED INDEX [D_RECONCOLIATION_JOB_MART_SOURCE_ID_IX] ON [dbo].[D_RECONCILIATION_JOB]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_RECONCILIATION_JOB].[D_RECONCOLIATION_JOB_MART_SOURCE_ID_IX]'
 END
+GO
 
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_RESERVATION') AND name='PRIMARY_OCCUPANT_TYPE_NM')
-BEGIN
-	ALTER TABLE D_RESERVATION ADD PRIMARY_OCCUPANT_TYPE_NM varchar(255) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Primary Occupant type: Primary occupant''s type.', 'schema', 'dbo', 'table', 'D_RESERVATION', 'column', 'PRIMARY_OCCUPANT_TYPE_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_RESERVATION].[PRIMARY_OCCUPANT_TYPE_NM]'
-END
 
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_RESERVATION') AND name='RESERVATION_STATUS_NM')
-BEGIN
-	ALTER TABLE D_RESERVATION ADD RESERVATION_STATUS_NM varchar(100) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'reservation status.', 'schema', 'dbo', 'table', 'D_RESERVATION', 'column', 'RESERVATION_STATUS_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_RESERVATION].[RESERVATION_STATUS_NM]'
-END
+GO
+-- END: D_RECONCILIATION_JOB.sql
+--------------------------------------------------------------------------------
 
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_DAILY_ENTRANCE') AND name='CHECKIN_IND')
-BEGIN
-        ALTER TABLE D_DAILY_ENTRANCE DROP COLUMN CHECKIN_IND
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_DAILY_ENTRANCE].[CHECKIN_IND]'
-END
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_DAILY_ENTRANCE') AND name='PRIMARY_OCCUPANT_TYPE_NM')
-BEGIN
-	ALTER TABLE D_DAILY_ENTRANCE ADD PRIMARY_OCCUPANT_TYPE_NM varchar(255) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Primary Occupant type: Primary occupant''s type.', 'schema', 'dbo', 'table', 'D_DAILY_ENTRANCE', 'column', 'PRIMARY_OCCUPANT_TYPE_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_DAILY_ENTRANCE].[PRIMARY_OCCUPANT_TYPE_NM]'
-END
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_DAILY_ENTRANCE') AND name='RESERVATION_STATUS_NM')
-BEGIN
-	ALTER TABLE D_DAILY_ENTRANCE ADD RESERVATION_STATUS_NM varchar(100) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'reservation status.', 'schema', 'dbo', 'table', 'D_DAILY_ENTRANCE', 'column', 'RESERVATION_STATUS_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_DAILY_ENTRANCE].[RESERVATION_STATUS_NM]'
-END
+--------------------------------------------------------------------------------
+-- START: D_VOUCHER.sql
 
 /*
-
-DO NOT deploy to UAT until TPWD CODE FREEZE finish
-
- * NOTES: Creates B_RESERVATION_OCCUPANT bridge for AspiraOne datamart 
+ * NOTES: Creates D_VOUCHER dimension for AspiraOne datamart 
  *
  * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/19/2019  DMA-3756  Kelvin Wang	  Initialization.
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4205  Nat Nie          Initialization.
+*/
+
+
+
+SET NOCOUNT ON
+
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+IF OBJECT_ID('DBO.D_VOUCHER') IS NULL
+BEGIN
+CREATE TABLE DBO.D_VOUCHER(
+    VOUCHER_KEY              bigint            IDENTITY(1,1),
+    VOUCHER_STATUS           varchar(50)       NULL,
+    VOUCHER_PROGRAM_KEY      bigint            NULL,
+    ORIGINAL_AMT             decimal(38, 6)    NULL,
+    BALANCE                  decimal(38, 6)    NULL,
+    CREATE_USER_KEY          bigint            NULL,
+    CREATE_LOCATION_KEY      bigint            NULL,
+    CREATE_DTM               datetime          NULL,
+    REFUNDED_USER_KEY        bigint            NULL,
+    REFUNDED_LOCATION_KEY    bigint            NULL,
+    REFUNDED_DTM             datetime          NULL,
+    REFUNDED_TO_REFUND_ID    bigint            NULL,
+    REFUNDED_COMMENTS        varchar(4000)     NULL,
+    VOID_USER_KEY            bigint            NULL,
+    VOID_LOCATION_KEY        bigint            NULL,
+    VOID_DTM                 datetime          NULL,
+    MART_SOURCE_ID           bigint            NULL,
+    MART_CREATED_DTM         datetime          NULL,
+    MART_MODIFIED_DTM        datetime          NULL,
+    CONSTRAINT PK_D_VOUCHER_ PRIMARY KEY CLUSTERED (VOUCHER_KEY)
+)ON TX_CAMPING_MART_DATA
+
+
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Key: surrogate key used to uniquely identify a voucher record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'VOUCHER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Status: voucher status.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'VOUCHER_STATUS'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Program Key: surrogate key used to uniquely identify a voucher program record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'VOUCHER_PROGRAM_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Original Amount: orginal amount of the voucher.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'ORIGINAL_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Balance: balance of the voucher.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'BALANCE'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'CREATE_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'CREATE_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Create Date: create date.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'CREATE_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'REFUNDED_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'REFUNDED_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refunded Date: refunded date.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'REFUNDED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refunded to Refund ID: refunded to refund ID in AO.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'REFUNDED_TO_REFUND_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refunded Comments: refunded comments.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'REFUNDED_COMMENTS'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'VOID_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'VOID_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Void Date: void date.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'VOID_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'D_VOUCHER', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher: voucher', 'schema', 'dbo', 'table', 'D_VOUCHER'
+
+
+PRINT '[INFO] CREATED TABLE [DBO].[D_VOUCHER]'
+
+END
+GO
+
+--INDEX: D_VOUCHER_VOUCHER_PROGRAM_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_VOUCHER_PROGRAM_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_VOUCHER_PROGRAM_KEY_IX] ON [dbo].[D_VOUCHER]([VOUCHER_PROGRAM_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_VOUCHER_PROGRAM_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_CREATE_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_CREATE_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_CREATE_USER_KEY_IX] ON [dbo].[D_VOUCHER]([CREATE_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_CREATE_USER_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_REFUNDED_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_REFUNDED_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_REFUNDED_USER_KEY_IX] ON [dbo].[D_VOUCHER]([REFUNDED_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_REFUNDED_USER_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_VOID_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_VOID_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_VOID_USER_KEY_IX] ON [dbo].[D_VOUCHER]([VOID_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_VOID_USER_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_CREATE_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_CREATE_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_CREATE_LOCATION_KEY_IX] ON [dbo].[D_VOUCHER]([CREATE_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_CREATE_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_REFUNDED_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_REFUNDED_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_REFUNDED_LOCATION_KEY_IX] ON [dbo].[D_VOUCHER]([REFUNDED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_REFUNDED_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_VOID_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_VOID_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_VOID_LOCATION_KEY_IX] ON [dbo].[D_VOUCHER]([VOID_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_VOID_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER]','U') AND i.name = 'D_VOUCHER_MART_SOURCE_ID_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_MART_SOURCE_ID_IX] ON [dbo].[D_VOUCHER]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER].[D_VOUCHER_MART_SOURCE_ID_IX]'
+END
+GO
+
+GO
+-- END: D_VOUCHER.sql
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- START: D_VOUCHER_PROGRAM.sql
+
+/*
+ * NOTES: Creates D_VOUCHER_PROGRAM dimension for AspiraOne datamart 
+ *
+ * DATE        JIRA      USER             DESCRIPTION
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4205  Nat Nie          Initialization.
+*/
+
+
+
+SET NOCOUNT ON
+
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+IF OBJECT_ID('DBO.D_VOUCHER_PROGRAM') IS NULL
+BEGIN
+CREATE TABLE DBO.D_VOUCHER_PROGRAM(
+    VOUCHER_PROGRAM_KEY          bigint           IDENTITY(1,1),
+    VOUCHER_PROGRAM_NM           varchar(1024)    NULL,
+    VOUCHER_PROGRAM_TYPE         varchar(512)     NULL,
+    EFFECTIVE_START_DT           date             NULL,
+    EFFECTIVE_END_DT             date             NULL,
+    EMERGENCY_CANCEL_IND         smallint         NULL,
+    REDIRECT_REFUND_IND          smallint         NULL,
+    WEB_REDIRECT_REFUND_IND      smallint         NULL,
+    SAME_BILLING_CUSTOMER_IND    smallint         NULL,
+    EXPIRY_IND                   smallint         NULL,
+    ACCOUNT_KEY                  bigint           NULL,
+    ACTIVE_IND                   smallint         NULL,
+    DELETED_IND                  smallint         NULL,
+    MART_SOURCE_ID               bigint           NULL,
+    MART_CREATED_DTM             datetime         NULL,
+    MART_MODIFIED_DTM            datetime         NULL,
+    CONSTRAINT PK_D_VOUCHER_PROGRAM PRIMARY KEY CLUSTERED (VOUCHER_PROGRAM_KEY)
+)ON TX_CAMPING_MART_DATA
+
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Program Key: surrogate key used to uniquely identify a voucher program record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'VOUCHER_PROGRAM_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Program Name: the name of voucher program.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'VOUCHER_PROGRAM_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Programe Type: voucher programe type.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'VOUCHER_PROGRAM_TYPE'
+exec sys.sp_addextendedproperty 'MS_Description', 'Effective Start Date: effective start date.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'EFFECTIVE_START_DT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Effective End Date: effective end date.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'EFFECTIVE_END_DT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Emergency Cancel Indicator: emergency cancel indicator.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'EMERGENCY_CANCEL_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Redirect Refund Indicator: redirect refund indicator.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'REDIRECT_REFUND_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Web Redirect Refund Indicator: web redirect refund indicator.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'WEB_REDIRECT_REFUND_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Same Billing Customer Indicator: same billing customer indicator.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'SAME_BILLING_CUSTOMER_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Expiry Indicator: expiry indicator.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'EXPIRY_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Account Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'ACCOUNT_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Active Indicator: 1 if this record is active in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'ACTIVE_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'DELETED_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Program: voucher program.', 'schema', 'dbo', 'table', 'D_VOUCHER_PROGRAM'
+
+PRINT '[INFO] CREATED TABLE [DBO].[D_VOUCHER_PROGRAM]'
+
+END
+GO
+
+--INDEX: D_VOUCHER_PROGRAM_ACCOUNT_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER_PROGRAM]','U') AND i.name = 'D_VOUCHER_PROGRAM_ACCOUNT_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_PROGRAM_ACCOUNT_KEY_IX] ON [dbo].[D_VOUCHER_PROGRAM]([ACCOUNT_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER_PROGRAM].[D_VOUCHER_PROGRAM_ACCOUNT_KEY_IX]'
+END
+GO
+
+--INDEX: D_VOUCHER_PROGRAM_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VOUCHER_PROGRAM]','U') AND i.name = 'D_VOUCHER_PROGRAM_MART_SOURCE_ID_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_VOUCHER_PROGRAM_MART_SOURCE_ID_IX] ON [dbo].[D_VOUCHER_PROGRAM]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VOUCHER_PROGRAM].[D_VOUCHER_PROGRAM_MART_SOURCE_ID_IX]'
+END
+GO
+
+GO
+
+-- END: D_VOUCHER_PROGRAM.sql
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- START: B_REFUND_ISSUANCE_ATTRIBUTE.sql
+
+/*
+ * NOTES: Creates B_REFUND_ISSUANCE_ATTRIBUTE bridge for AspiraOne datamart 
+ *
+ * DATE        JIRA      USER             DESCRIPTION
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4205  Nat Nie          Initialization.
+*/
+
+
+
+SET NOCOUNT ON
+
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+IF OBJECT_ID('DBO.B_REFUND_ISSUANCE_ATTRIBUTE') IS NULL
+BEGIN
+CREATE TABLE B_REFUND_ISSUANCE_ATTRIBUTE(
+    REFUND_ISSUANCE_ATTRIBUTE_KEY    bigint          IDENTITY(1,1),
+    REFUND_ISSUANCE_KEY              bigint          NULL,
+    ATTRIBUTE_NM                     varchar(255)    NULL,
+    ATTRIBUTE_VALUE                  varchar(255)    NULL,
+    MART_SOURCE_ID                   bigint          NULL,
+    MART_MODIFIED_DTM                datetime        NULL,
+    MART_CREATED_DTM                 datetime        NULL,
+    CONSTRAINT PK_B_REFUND_ISSUANCE_ATTRIBUTE PRIMARY KEY CLUSTERED (REFUND_ISSUANCE_ATTRIBUTE_KEY)
+)ON TX_CAMPING_MART_DATA
+
+
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Issuance Attribute Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'REFUND_ISSUANCE_ATTRIBUTE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Issuance Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'REFUND_ISSUANCE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Attribute Name: attribute name.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'ATTRIBUTE_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Attribute Value: attribute value.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'ATTRIBUTE_VALUE'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund_Issuance_Attribute: the attribute and values that links to a refund issue record.', 'schema', 'dbo', 'table', 'B_REFUND_ISSUANCE_ATTRIBUTE'
+
+
+PRINT '[INFO] CREATED TABLE [DBO].[B_REFUND_ISSUANCE_ATTRIBUTE]'
+
+END
+GO
+
+--INDEX: B_REFUND_ISSUANCE_ATTRIBUTE_ISSUANCE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_REFUND_ISSUANCE_ATTRIBUTE]','U') AND i.name = 'B_REFUND_ISSUANCE_ATTRIBUTE_ISSUANCE_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [B_REFUND_ISSUANCE_ATTRIBUTE_ISSUANCE_KEY_IX] ON [dbo].[B_REFUND_ISSUANCE_ATTRIBUTE]([REFUND_ISSUANCE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_REFUND_ISSUANCE_ATTRIBUTE].[B_REFUND_ISSUANCE_ATTRIBUTE_ISSUANCE_KEY_IX]'
+END
+GO
+
+--INDEX: B_REFUND_ISSUANCE_ATTRIBUTE_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_REFUND_ISSUANCE_ATTRIBUTE]','U') AND i.name = 'B_REFUND_ISSUANCE_ATTRIBUTE_MART_SOURCE_ID_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [B_REFUND_ISSUANCE_ATTRIBUTE_MART_SOURCE_ID_IX] ON [dbo].[B_REFUND_ISSUANCE_ATTRIBUTE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_REFUND_ISSUANCE_ATTRIBUTE].[B_REFUND_ISSUANCE_ATTRIBUTE_MART_SOURCE_ID_IX]'
+END
+GO
+
+GO
+
+-- END: B_REFUND_ISSUANCE_ATTRIBUTE.sql
+--------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------
+-- START: F_REFUND_ISSUANCE.sql
+
+/*
+ * NOTES: Creates F_REFUND_ISSUANCE fact for AspiraOne datamart 
+ *
+ * DATE        JIRA      USER             DESCRIPTION
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4205  Nat Nie          Initialization.
+*/
+
+
+
+SET NOCOUNT ON
+
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+IF OBJECT_ID('DBO.F_REFUND_ISSUANCE') IS NULL
+BEGIN
+CREATE TABLE F_REFUND_ISSUANCE(
+    REFUND_ISSUANCE_KEY          bigint            IDENTITY(1,1),
+    REFUND_STATUS_KEY            bigint            NOT NULL,
+    REFUND_TYPE_KEY              bigint            NOT NULL,
+    REFUND_GROUP_KEY             bigint            NOT NULL,
+    REFUND_AMT                   decimal(38, 6)    NOT NULL,
+    BATCH_KEY                    bigint            NULL,
+    RECONCILIATION_JOB_KEY       bigint            NULL,
+    REFERENCE_NB                 varchar(50)       NULL,
+    FINANCIAL_SESSION_KEY        bigint            NULL,
+    CUSTOMER_KEY                 bigint            NULL,
+    ORDER_KEY                    bigint            NULL,
+    ORDER_DATE_KEY               bigint            NULL,
+    ORDER_NB                     varchar(255)      NULL,
+    RECEIPT_NB                   varchar(80)       NULL,
+    REQUEST_USER_KEY             bigint            NULL,
+    PIN_USER_KEY                 bigint            NULL,
+    REQUEST_LOCATION_KEY         bigint            NULL,
+    REQUEST_DATE_KEY             bigint            NULL,
+    REQUEST_TIME_KEY             bigint            NULL,
+    APPROVE_USER_KEY             bigint            NULL,
+    APPROVE_LOCATION_KEY         bigint            NULL,
+    APPROVE_DATE_KEY             bigint            NULL,
+    APPROVE_TIME_KEY             bigint            NULL,
+    VOID_USER_KEY                bigint            NULL,
+    VOID_LOCATION_KEY            bigint            NULL,
+    VOID_DATE_KEY                bigint            NULL,
+    VOID_TIME_KEY                bigint            NULL,
+    ISSUE_STATUS_KEY             bigint            NULL,
+    ISSUE_TYPE_KEY               bigint            NULL,
+    ISSUE_SALES_CHANNEL_KEY      bigint            NULL,
+    ISSUE_USER_KEY               bigint            NULL,
+    ISSUE_LOCATION_KEY           bigint            NULL,
+    REFUND_STATION_KEY           bigint            NULL,
+    ISSUE_DATE_KEY               bigint            NULL,
+    ISSUE_TIME_KEY               bigint            NULL,
+    REISSUE_REASON               varchar(4000)     NULL,
+    ISSUE_CENTRALLY_USER_KEY     bigint            NULL,
+    ISSUE_CENTRALLY_IND          smallint          NULL,
+    ISSUE_CENTRALLY_DTM          datetime          NULL,
+    SOURCE_PAYMENT_ID            bigint            NULL,
+    SOURCE_PAYMENT_TYPE_KEY      bigint            NULL,
+    SOURCE_PAYMENT_STATUS_KEY    bigint            NULL,
+    SOURCE_PAYMENT_GROUP_KEY     bigint            NULL,
+    SOURCE_PAYMENT_AMT           decimal(38, 6)    NULL,
+    ACCOUNT_KEY                  bigint            NULL,
+    REFUND_NOTE                  varchar(4000)     NULL,
+    FIELD_REFUND_NOTE            varchar(4000)     NULL,
+    SUPPORT_REFUND_NOTE          varchar(4000)     NULL,
+    GIFT_CARD_KEY                bigint            NULL,
+    VOUCHER_KEY                  bigint            NULL,
+    ACTIVE_IND                   smallint          NULL,
+    MART_SOURCE_ID               bigint            NULL,
+    MART_CREATED_DTM             datetime          NULL,
+    MART_MODIFIED_DTM            datetime          NULL,
+	REFUND_ID                    bigint            NULL,
+    CONSTRAINT PK_F_REFUND_ISSUANCE PRIMARY KEY CLUSTERED (REFUND_ISSUANCE_KEY)
+)ON TX_CAMPING_MART_DATA
+
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Issuance Key: surrogate key used to uniquely identify a refund issuance record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_ISSUANCE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payament Status Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_STATUS_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payment Type Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_TYPE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payment Group Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_GROUP_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Amount: the amount on the refund.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Batch Key: surrogate key used to uniquely identify a batch record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'BATCH_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Reconciliation Job Key: surrogate key used to uniquely identify a reconciliation job record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'RECONCILIATION_JOB_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Reference Number: the reference number in the settlement transaction.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFERENCE_NB'
+exec sys.sp_addextendedproperty 'MS_Description', 'Financial Session Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'FINANCIAL_SESSION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Customer Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'CUSTOMER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Order Key: surrogate key uniquely identifying this record in the mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ORDER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Date Key: surrogate key uniquely identifying this record in the mart. Formatted YYYYMMDD', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ORDER_DATE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Order Number: order number.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ORDER_NB'
+exec sys.sp_addextendedproperty 'MS_Description', 'Receipt Number: receipt number.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'RECEIPT_NB'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REQUEST_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'PIN_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REQUEST_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Date Key: surrogate key uniquely identifying this record in the mart. Formatted YYYYMMDD', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REQUEST_DATE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Time Key: surrogate key uniquely identifying this record in the mart. Same as the number of seconds within a day: 0-86399.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REQUEST_TIME_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'APPROVE_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'APPROVE_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Date Key: surrogate key uniquely identifying this record in the mart. Formatted YYYYMMDD', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'APPROVE_DATE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Time Key: surrogate key uniquely identifying this record in the mart. Same as the number of seconds within a day: 0-86399.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'APPROVE_TIME_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'VOID_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'VOID_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Date Key: surrogate key uniquely identifying this record in the mart. Formatted YYYYMMDD', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'VOID_DATE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Time Key: surrogate key uniquely identifying this record in the mart. Same as the number of seconds within a day: 0-86399.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'VOID_TIME_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payament Status Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_STATUS_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payment Type Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_TYPE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Sales Channel Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_SALES_CHANNEL_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_LOCATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_STATION_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Date Key: surrogate key uniquely identifying this record in the mart. Formatted YYYYMMDD', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_DATE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Time Key: surrogate key uniquely identifying this record in the mart. Same as the number of seconds within a day: 0-86399.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_TIME_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Reissue Reason: reissue reason.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REISSUE_REASON'
+exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_CENTRALLY_USER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Issue Centrally Indicator: indicates whether the refund is issued centrally, 0 locally, 1 centrally.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_CENTRALLY_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Issue Centrally Date: issue centrally date.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ISSUE_CENTRALLY_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Source Payment Identifier: the ID of the source payment in AO.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'SOURCE_PAYMENT_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payment Type Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'SOURCE_PAYMENT_TYPE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payament Status Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'SOURCE_PAYMENT_STATUS_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Payment Group Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'SOURCE_PAYMENT_GROUP_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Source Payment Amount: the amount of the source payment.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'SOURCE_PAYMENT_AMT'
+exec sys.sp_addextendedproperty 'MS_Description', 'Account Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ACCOUNT_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Note: refund note.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_NOTE'
+exec sys.sp_addextendedproperty 'MS_Description', 'Field Refund Note: field refund note.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'FIELD_REFUND_NOTE'
+exec sys.sp_addextendedproperty 'MS_Description', 'Support Refund Note: support refund note.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'SUPPORT_REFUND_NOTE'
+exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'GIFT_CARD_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Voucher Key: surrogate key used to uniquely identify a voucher record in the data mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'VOUCHER_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Active Indicator: 1 if this record is active in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'ACTIVE_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Identifier: identifier of the refund.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE', 'column', 'REFUND_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Refund Issuance: one row per refund issuance, including inactive ones.', 'schema', 'dbo', 'table', 'F_REFUND_ISSUANCE'
+
+PRINT '[INFO] CREATED TABLE [DBO].[F_REFUND_ISSUANCE]'
+
+END
+GO
+
+
+--INDEX: F_REFUND_ISSUANCE_FINANCIAL_SESSION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_FINANCIAL_SESSION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_FINANCIAL_SESSION_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([FINANCIAL_SESSION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_FINANCIAL_SESSION_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_CUSTOMER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_CUSTOMER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_CUSTOMER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([CUSTOMER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_CUSTOMER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ORDER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ORDER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ORDER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ORDER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ORDER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ORDER_DATE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ORDER_DATE_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ORDER_DATE_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ORDER_DATE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ORDER_DATE_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ORDER_NB_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ORDER_NB_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ORDER_NB_IX] ON [dbo].[F_REFUND_ISSUANCE]([ORDER_NB]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ORDER_NB_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_RECEIPT_NB_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_RECEIPT_NB_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_RECEIPT_NB_IX] ON [dbo].[F_REFUND_ISSUANCE]([RECEIPT_NB]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_RECEIPT_NB_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_REQUEST_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_REQUEST_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_REQUEST_USER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([REQUEST_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_REQUEST_USER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_REQUEST_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_REQUEST_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_REQUEST_LOCATION_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([REQUEST_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_REQUEST_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_REQUEST_DATE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_REQUEST_DATE_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_REQUEST_DATE_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([REQUEST_DATE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_REQUEST_DATE_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_REQUEST_TIME_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_REQUEST_TIME_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_REQUEST_TIME_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([REQUEST_TIME_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_REQUEST_TIME_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_APPROVE_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_APPROVE_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_APPROVE_USER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([APPROVE_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_APPROVE_USER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_APPROVE_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_APPROVE_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_APPROVE_LOCATION_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([APPROVE_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_APPROVE_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_APPROVE_DATE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_APPROVE_DATE_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_APPROVE_DATE_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([APPROVE_DATE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_APPROVE_DATE_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_APPROVE_TIME_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_APPROVE_TIME_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_APPROVE_TIME_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([APPROVE_TIME_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_APPROVE_TIME_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_VOID_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_VOID_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_VOID_USER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([VOID_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_VOID_USER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_VOID_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_VOID_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_VOID_LOCATION_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([VOID_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_VOID_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_VOID_DATE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_VOID_DATE_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_VOID_DATE_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([VOID_DATE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_VOID_DATE_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_VOID_TIME_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_VOID_TIME_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_VOID_TIME_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([VOID_TIME_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_VOID_TIME_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ISSUE_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ISSUE_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ISSUE_USER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ISSUE_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ISSUE_USER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ISSUE_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ISSUE_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ISSUE_LOCATION_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ISSUE_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ISSUE_LOCATION_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ISSUE_DATE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ISSUE_DATE_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ISSUE_DATE_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ISSUE_DATE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ISSUE_DATE_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ISSUE_TIME_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ISSUE_TIME_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ISSUE_TIME_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ISSUE_TIME_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ISSUE_TIME_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ISSUE_CENTRALLY_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ISSUE_CENTRALLY_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ISSUE_CENTRALLY_USER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ISSUE_CENTRALLY_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ISSUE_CENTRALLY_USER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_ACCOUNT_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_ACCOUNT_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_ACCOUNT_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([ACCOUNT_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_ACCOUNT_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_BATCH_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_BATCH_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_BATCH_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([BATCH_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_BATCH_KEY_IX]'
+END
+GO
+
+
+--INDEX: F_REFUND_ISSUANCE_RECONCILIATION_JOB_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_RECONCILIATION_JOB_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_RECONCILIATION_JOB_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([RECONCILIATION_JOB_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_RECONCILIATION_JOB_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_GIFT_CARD_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_GIFT_CARD_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_GIFT_CARD_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([GIFT_CARD_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_GIFT_CARD_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_VOUCHER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_VOUCHER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_VOUCHER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([VOUCHER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_VOUCHER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_PIN_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_PIN_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_PIN_USER_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([PIN_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_PIN_USER_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_REFUND_STATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_REFUND_STATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_REFUND_STATION_KEY_IX] ON [dbo].[F_REFUND_ISSUANCE]([REFUND_STATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_REFUND_STATION_KEY_IX]'
+END
+GO
+
+--INDEX: F_REFUND_ISSUANCE_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_REFUND_ISSUANCE]','U') AND i.name = 'F_REFUND_ISSUANCE_MART_SOURCE_ID_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [F_REFUND_ISSUANCE_MART_SOURCE_ID_IX] ON [dbo].[F_REFUND_ISSUANCE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_REFUND_ISSUANCE].[F_REFUND_ISSUANCE_MART_SOURCE_ID_IX]'
+END
+GO
+
+GO
+
+
+-- END: F_REFUND_ISSUANCE.sql
+--------------------------------------------------------------------------------
+
+
+
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LOCATION') AND name='SHORT_NM')
+BEGIN
+	ALTER TABLE D_LOCATION ADD SHORT_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Short Name: short name of the location.', 'schema', 'dbo', 'table', 'D_LOCATION', 'column', 'SHORT_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LOCATION].[SHORT_NM]'
+END
+
+
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_FINANCIAL_SESSION') AND name='CLOSE_USER_KEY')
+BEGIN
+	ALTER TABLE D_FINANCIAL_SESSION ADD CLOSE_USER_KEY bigint NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_FINANCIAL_SESSION', 'column', 'CLOSE_USER_KEY'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_FINANCIAL_SESSION].[CLOSE_USER_KEY]'
+END
+
+
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_FINANCIAL_SESSION') AND name='DEPOSIT_USER_KEY')
+BEGIN
+	ALTER TABLE D_FINANCIAL_SESSION ADD DEPOSIT_USER_KEY bigint NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_FINANCIAL_SESSION', 'column', 'DEPOSIT_USER_KEY'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_FINANCIAL_SESSION].[DEPOSIT_USER_KEY]'
+END
+
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_FINANCIAL_SESSION') AND name='LOCATION_KEY')
+BEGIN
+	ALTER TABLE D_FINANCIAL_SESSION ADD LOCATION_KEY bigint NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_FINANCIAL_SESSION', 'column', 'LOCATION_KEY'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_FINANCIAL_SESSION].[LOCATION_KEY]'
+END
+
+
+--INDEX: D_FINANCIAL_SESSION_CLOSE_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_FINANCIAL_SESSION]','U') AND i.name = 'D_FINANCIAL_SESSION_CLOSE_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_FINANCIAL_SESSION_CLOSE_USER_KEY_IX] ON [dbo].[D_FINANCIAL_SESSION]([CLOSE_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_FINANCIAL_SESSION].[D_FINANCIAL_SESSION_CLOSE_USER_KEY_IX]'
+END
+GO
+
+
+--INDEX: D_FINANCIAL_SESSION_DEPOSIT_USER_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_FINANCIAL_SESSION]','U') AND i.name = 'D_FINANCIAL_SESSION_DEPOSIT_USER_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_FINANCIAL_SESSION_DEPOSIT_USER_KEY_IX] ON [dbo].[D_FINANCIAL_SESSION]([DEPOSIT_USER_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_FINANCIAL_SESSION].[D_FINANCIAL_SESSION_DEPOSIT_USER_KEY_IX]'
+END
+GO
+
+--INDEX: D_FINANCIAL_SESSION_LOCATION_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_FINANCIAL_SESSION]','U') AND i.name = 'D_FINANCIAL_SESSION_LOCATION_KEY_IX')
+BEGIN
+    CREATE NONCLUSTERED INDEX [D_FINANCIAL_SESSION_LOCATION_KEY_IX] ON [dbo].[D_FINANCIAL_SESSION]([LOCATION_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_FINANCIAL_SESSION].[D_FINANCIAL_SESSION_LOCATION_KEY_IX]'
+END
+GO
+
+
+--------------------------------------------------------------------------------
+-- START: D_VEHICLE_EQUIPMENT_SET.sql
+
+/*
+ * NOTES: Creates D_VEHICLE_EQUIPMENT_SET dimension for AspiraOne datamart 
+ *
+ * DATE        JIRA      USER             DESCRIPTION
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4214  Nat Nie          Initialization.
 */
 
 SET NOCOUNT ON
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED
 
-IF OBJECT_ID('DBO.B_RESERVATION_OCCUPANT') IS NULL
+IF OBJECT_ID('DBO.D_VEHICLE_EQUIPMENT_SET') IS NULL
 BEGIN
-		CREATE TABLE [dbo].[B_RESERVATION_OCCUPANT](
-			[RESERVATION_OCCUPANT_KEY]  bigint          IDENTITY(1,1),
-			[ITEM_KEY]                  bigint          NULL,
-			[OCCUPANT_TYPE_NM]          varchar(255)    NULL,
-			[OCCUPANT_TYPE_CNT]         int             NULL,
-			[OCCUPANT_TYPE_ID]          bigint          NULL,
-			[DELETED_IND]               smallint        NULL,
-			[MART_CREATED_DTM]          datetime        NULL,
-			[MART_MODIFIED_DTM]         datetime        NULL
-		CONSTRAINT PK_B_RESERVATION_OCCUPANT PRIMARY KEY CLUSTERED ([RESERVATION_OCCUPANT_KEY])
-	) ON TX_CAMPING_MART_DATA
+CREATE TABLE DBO.D_VEHICLE_EQUIPMENT_SET(
+    VEHICLE_EQUIPMENT_SET_KEY    bigint           IDENTITY(1,1),
+    VEHICLE_EQUIPMENT_SET_NM     varchar(255)     NULL,
+    VEHICLE_EQUIPMENT_SET_DSC    varchar(255)     NULL,
+    BASE_VEHICLE_NB              bigint           NULL,
+    TOTAL_VEHICLE_MAX_NB         bigint           NULL,
+    CAMPING_VEHICLE_MAX_NB       bigint           NULL,
+    APPLIES_TO_NAME              varchar(255)     NULL,
+    DISPLAY_NOTE                 varchar(4000)    NULL,
+    DELETED_IND                  smallint         NULL,
+    MART_SOURCE_ID               bigint           NULL,
+    MART_CREATED_DTM             datetime         NULL,
+    MART_MODIFIED_DTM            datetime         NULL,
+    CONSTRAINT PK_D_VEHICLE_EQUIPMENT_SET PRIMARY KEY CLUSTERED (VEHICLE_EQUIPMENT_SET_KEY)
+)ON TX_CAMPING_MART_DATA
 
-	exec sys.sp_addextendedproperty 'MS_Description', 'Reservation Occupant Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'RESERVATION_OCCUPANT_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Name: Name of occupant type.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'OCCUPANT_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Count: Count of certain occupant type.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'OCCUPANT_TYPE_CNT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Identifier:  source system identifier for order profile occupant type.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'OCCUPANT_TYPE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B Reservation Occupant: Reservation occupant bridge table.', 'schema', 'dbo', 'table', 'B_RESERVATION_OCCUPANT'
 
-	PRINT '[INFO] CREATED TABLE [DBO].[B_RESERVATION_OCCUPANT]'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Key: surrogate key used to uniquely identify a vehicle equipment set record in the data mart.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'VEHICLE_EQUIPMENT_SET_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Name: name of the vehicle equipment set.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'VEHICLE_EQUIPMENT_SET_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Description: description of the vehicle equipment set.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'VEHICLE_EQUIPMENT_SET_DSC'
+exec sys.sp_addextendedproperty 'MS_Description', 'Base Vehicle Number: base vehicle number.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'BASE_VEHICLE_NB'
+exec sys.sp_addextendedproperty 'MS_Description', 'Total Vehicle Max Number: total vehicle max number.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'TOTAL_VEHICLE_MAX_NB'
+exec sys.sp_addextendedproperty 'MS_Description', 'Camping Vehicle Max Number: camping vehicle max number.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'CAMPING_VEHICLE_MAX_NB'
+exec sys.sp_addextendedproperty 'MS_Description', 'Applies to Name: applies to name.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'APPLIES_TO_NAME'
+exec sys.sp_addextendedproperty 'MS_Description', 'Display Note: display note.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'DISPLAY_NOTE'
+exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'DELETED_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set: vehicle equipment set.', 'schema', 'dbo', 'table', 'D_VEHICLE_EQUIPMENT_SET'
+
+PRINT '[INFO] CREATED TABLE [DBO].[D_VEHICLE_EQUIPMENT_SET]'
+
 END
 GO
 
---INDEX: B_RESERVATION_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_OCCUPANT]','U') AND i.name = 'B_RESERVATION_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX')
+--INDEX: D_VEHICLE_EQUIPMENT_SET_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_VEHICLE_EQUIPMENT_SET]','U') AND i.name = 'D_VEHICLE_EQUIPMENT_SET_MART_SOURCE_ID_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX] ON [dbo].[B_RESERVATION_OCCUPANT]([ITEM_KEY], [OCCUPANT_TYPE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_OCCUPANT].[B_RESERVATION_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX]'
+    CREATE NONCLUSTERED INDEX [D_VEHICLE_EQUIPMENT_SET_MART_SOURCE_ID_IX] ON [dbo].[D_VEHICLE_EQUIPMENT_SET]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_VEHICLE_EQUIPMENT_SET].[D_VEHICLE_EQUIPMENT_SET_MART_SOURCE_ID_IX]'
 END
 GO
 
---INDEX: B_RESERVATION_OCCUPANT_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_OCCUPANT]','U') AND i.name = 'B_RESERVATION_OCCUPANT_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_OCCUPANT_ITEM_KEY_IX] ON [dbo].[B_RESERVATION_OCCUPANT]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_OCCUPANT].[B_RESERVATION_OCCUPANT_ITEM_KEY_IX]'
-END
 GO
+-- END: D_VEHICLE_EQUIPMENT_SET.sql
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- START: B_VEHICLE_EQUIPMENT_ITEM.sql
 
 /*
-
-DO NOT deploy to UAT until TPWD CODE FREEZE finish
-
- * NOTES: Creates B_RESERVATION_VEHICLE bridge for AspiraOne datamart 
+ * NOTES: Creates B_VEHICLE_EQUIPMENT_ITEM bridge for AspiraOne datamart 
  *
  * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/19/2019  DMA-3756  Kelvin Wang	  Initialization.
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4214  Nat Nie          Initialization.
 */
 
 SET NOCOUNT ON
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED
 
-IF OBJECT_ID('DBO.B_RESERVATION_VEHICLE') IS NULL
+IF OBJECT_ID('DBO.B_VEHICLE_EQUIPMENT_ITEM') IS NULL
 BEGIN
-		CREATE TABLE [dbo].[B_RESERVATION_VEHICLE](
-			[RESERVATION_VEHICLE_KEY]  bigint          IDENTITY(1,1),
-			[ITEM_KEY]                 bigint          NULL,
-			[VEHICLE_TYPE_NM]          varchar(255)    NULL,
-			[VEHICLE_PLATE_NB]         varchar(255)    NULL,
-			[VEHICLE_STATE_NM]         varchar(255)    NULL,
-			[VEHICLE_MAKER_NM]         varchar(255)    NULL,
-			[VEHICLE_MODEL_NM]         varchar(255)    NULL,
-			[VEHICLE_COLOR_NM]         varchar(255)    NULL,
-			[MART_SOURCE_ID]           bigint          NULL,
-			[DELETED_IND]              smallint        NULL,
-			[MART_CREATED_DTM]         datetime        NULL,
-			[MART_MODIFIED_DTM]        datetime        NULL
-		CONSTRAINT PK_B_RESERVATION_VEHICLE PRIMARY KEY CLUSTERED ([RESERVATION_VEHICLE_KEY])
-	) ON TX_CAMPING_MART_DATA
+CREATE TABLE DBO.B_VEHICLE_EQUIPMENT_ITEM(
+    VEHICLE_EQUIPMENT_ITEM_KEY    bigint          IDENTITY(1,1),
+    VEHICLE_EQUIPMENT_SET_KEY     bigint          NULL,
+    SELECTION_TYPE_NM             varchar(255)    NULL,
+    VEHICLE_TYPE_NM               varchar(255)    NULL,
+    COUNT_AS_NM                   varchar(255)    NULL,
+	DELETED_IND                   smallint        NULL,
+    MART_SOURCE_ID                bigint          NULL,
+    MART_CREATED_DTM              datetime        NULL,
+    MART_MODIFIED_DTM             datetime        NULL,
+    CONSTRAINT PK_B_VEHICLE_EQUIPMENT_ITEM PRIMARY KEY CLUSTERED (VEHICLE_EQUIPMENT_ITEM_KEY)
+)ON TX_CAMPING_MART_DATA
 
-	exec sys.sp_addextendedproperty 'MS_Description', 'Reservation Vehicle Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'RESERVATION_VEHICLE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Type Name: Name of vehicle type.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'VEHICLE_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Plate Number: Number of vehicle plate.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'VEHICLE_PLATE_NB'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle State Name: State name of vehicle.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'VEHICLE_STATE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Maker Name: Name of vehicle maker.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'VEHICLE_MAKER_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Model Name: Name of vehicle model.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'VEHICLE_MODEL_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Color Name: Name of vehicle color.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'VEHICLE_COLOR_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B Reservation Vehicle: Reservation vehicle bridge table.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE'
 
-	PRINT '[INFO] CREATED TABLE [DBO].[B_RESERVATION_VEHICLE]'
+
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Item Key: surrogate key used to uniquely identify a vehicle equipment item in the data mart.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'VEHICLE_EQUIPMENT_ITEM_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Key: surrogate key used to uniquely identify a vehicle equipment set record in the data mart.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'VEHICLE_EQUIPMENT_SET_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Selection Type Name: selection type name.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'SELECTION_TYPE_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vechile Type Name: vechile type name.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'VEHICLE_TYPE_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Count as Name: count as name.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'COUNT_AS_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'DELETED_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle_Equipment_Item: vehicle equipment item', 'schema', 'dbo', 'table', 'B_VEHICLE_EQUIPMENT_ITEM'
+
+PRINT '[INFO] CREATED TABLE [DBO].[B_VEHICLE_EQUIPMENT_ITEM]'
+
 END
 GO
 
---INDEX: B_RESERVATION_VEHICLE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_VEHICLE]','U') AND i.name = 'B_RESERVATION_VEHICLE_MART_SOURCE_ID_IX')
+--INDEX: B_VEHICLE_EQUIPMENT_ITEM_VEHICLE_EQUIPMENT_SET_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_VEHICLE_EQUIPMENT_ITEM]','U') AND i.name = 'B_VEHICLE_EQUIPMENT_ITEM_VEHICLE_EQUIPMENT_SET_KEY_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_VEHICLE_MART_SOURCE_ID_IX] ON [dbo].[B_RESERVATION_VEHICLE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_VEHICLE].[B_RESERVATION_VEHICLE_MART_SOURCE_ID_IX]'
+    CREATE NONCLUSTERED INDEX [B_VEHICLE_EQUIPMENT_ITEM_VEHICLE_EQUIPMENT_SET_KEY_IX] ON [dbo].[B_VEHICLE_EQUIPMENT_ITEM]([VEHICLE_EQUIPMENT_SET_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_VEHICLE_EQUIPMENT_ITEM].[B_VEHICLE_EQUIPMENT_ITEM_VEHICLE_EQUIPMENT_SET_KEY_IX]'
 END
 GO
 
---INDEX: B_RESERVATION_VEHICLE_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_VEHICLE]','U') AND i.name = 'B_RESERVATION_VEHICLE_ITEM_KEY_IX')
+--INDEX: B_VEHICLE_EQUIPMENT_ITEM_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_VEHICLE_EQUIPMENT_ITEM]','U') AND i.name = 'B_VEHICLE_EQUIPMENT_ITEM_MART_SOURCE_ID_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_VEHICLE_ITEM_KEY_IX] ON [dbo].[B_RESERVATION_VEHICLE]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_VEHICLE].[B_RESERVATION_VEHICLE_ITEM_KEY_IX]'
+    CREATE NONCLUSTERED INDEX [B_VEHICLE_EQUIPMENT_ITEM_MART_SOURCE_ID_IX] ON [dbo].[B_VEHICLE_EQUIPMENT_ITEM]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_VEHICLE_EQUIPMENT_ITEM].[B_VEHICLE_EQUIPMENT_ITEM_MART_SOURCE_ID_IX]'
 END
 GO
+
+GO
+
+-- END: B_VEHICLE_EQUIPMENT_ITEM.sql
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- START: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT.sql
 
 /*
-
-DO NOT deploy to UAT until TPWD CODE FREEZE finish
-
- * NOTES: Creates B_RESERVATION_VEHICLE_OCCUPANT bridge for AspiraOne datamart 
+ * NOTES: Creates F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT fact for AspiraOne datamart 
  *
  * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/19/2019  DMA-3756  Kelvin Wang	  Initialization.
+ * ----------  --------  ---------------  ---------------------------------------  
+ * 06/27/2019  DMA-4214  Nat Nie          Initialization.
 */
 
 SET NOCOUNT ON
 
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED
 
-IF OBJECT_ID('DBO.B_RESERVATION_VEHICLE_OCCUPANT') IS NULL
+IF OBJECT_ID('DBO.F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT') IS NULL
 BEGIN
-		CREATE TABLE [dbo].[B_RESERVATION_VEHICLE_OCCUPANT](
-			[RESERVATION_VEHICLE_OCCUPANT_KEY]  bigint          IDENTITY(1,1),
-			[ITEM_KEY]                          bigint          NULL,
-			[RESERVATION_VEHICLE_KEY]           bigint          NULL,
-			[OCCUPANT_TYPE_NM]                  varchar(255)    NULL,
-			[OCCUPANT_TYPE_CNT]                 int             NULL,
-			[PROFILE_VEHICLE_ID]                bigint          NULL,
-			[OCCUPANT_TYPE_ID]                  bigint          NULL,
-			[DELETED_IND]                       smallint        NULL,
-			[MART_CREATED_DTM]                  datetime        NULL,
-			[MART_MODIFIED_DTM]                 datetime        NULL
-		CONSTRAINT PK_B_RESERVATION_VEHICLE_OCCUPANT PRIMARY KEY CLUSTERED ([RESERVATION_VEHICLE_OCCUPANT_KEY])
-	) ON TX_CAMPING_MART_DATA
+CREATE TABLE DBO.F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT(
+    VEHICLE_EQUIPMENT_SET_ASSIGNMENT_KEY    bigint          IDENTITY(1,1),
+    VEHICLE_EQUIPMENT_SET_KEY               bigint          NULL,
+    FACILITY_KEY                            bigint          NULL,
+    LOOP_KEY                                bigint          NULL,
+    SITE_KEY                                bigint          NULL,
+    ASSIGNMENT_TYPE_NM                      varchar(255)    NULL,
+    ASSIGNED_IND                            smallint        NULL,
+	DELETED_IND                             smallint        NULL,
+    MART_SOURCE_ID                          varchar(255)    NULL,
+    MART_CREATED_DTM                        datetime        NULL,
+    MART_MODIFIED_DTM                       datetime        NULL,
+    CONSTRAINT PK_F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT PRIMARY KEY CLUSTERED (VEHICLE_EQUIPMENT_SET_ASSIGNMENT_KEY)
+)ON TX_CAMPING_MART_DATA
 
-	exec sys.sp_addextendedproperty 'MS_Description', 'Reservation Vehicle Occupant Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'RESERVATION_VEHICLE_OCCUPANT_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Reservation Vehicle Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'RESERVATION_VEHICLE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Name: Name of occupant type.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'OCCUPANT_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Count: Count of certain occupant type.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'OCCUPANT_TYPE_CNT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Profile Vehicle Identifier: source system identifier for order profile vehicle.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'PROFILE_VEHICLE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Identifier:  source system identifier for order profile occupant type.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'OCCUPANT_TYPE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B Reservation Vehicle Occupant: Reservation vehicle occupant bridge table.', 'schema', 'dbo', 'table', 'B_RESERVATION_VEHICLE_OCCUPANT'
 
-	PRINT '[INFO] CREATED TABLE [DBO].[B_RESERVATION_VEHICLE_OCCUPANT]'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Assignment Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'VEHICLE_EQUIPMENT_SET_ASSIGNMENT_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Key: surrogate key used to uniquely identify a vehicle equipment set record in the data mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'VEHICLE_EQUIPMENT_SET_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'FACILITY_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'LOOP_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Product Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'SITE_KEY'
+exec sys.sp_addextendedproperty 'MS_Description', 'Assignment Type Name: the user defined type of the assignment, possible values are Site / Loop / Facility.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'ASSIGNMENT_TYPE_NM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Assigned Indicator: indicates if the record is assigned.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'ASSIGNED_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'DELETED_IND'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'MART_SOURCE_ID'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'MART_CREATED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT', 'column', 'MART_MODIFIED_DTM'
+exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Equipment Set Assignment: one row per assignment, including unassigned records, can be a site / loop / facility assignment. ', 'schema', 'dbo', 'table', 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT'
+
+
+PRINT '[INFO] CREATED TABLE [DBO].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]'
+
 END
 GO
 
---INDEX: B_RESERVATION_VEHICLE_OCCUPANT_RESERVATION_VEHICLE_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_VEHICLE_OCCUPANT]','U') AND i.name = 'B_RESERVATION_VEHICLE_OCCUPANT_RESERVATION_VEHICLE_KEY_IX')
+--INDEX: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_VEHICLE_EQUIPMENT_SET_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]','U') AND i.name = 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_VEHICLE_EQUIPMENT_SET_KEY_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_VEHICLE_OCCUPANT_RESERVATION_VEHICLE_KEY_IX] ON [dbo].[B_RESERVATION_VEHICLE_OCCUPANT]([RESERVATION_VEHICLE_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_VEHICLE_OCCUPANT].[B_RESERVATION_VEHICLE_OCCUPANT_RESERVATION_VEHICLE_KEY_IX]'
+    CREATE NONCLUSTERED INDEX [F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_VEHICLE_EQUIPMENT_SET_KEY_IX] ON [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]([VEHICLE_EQUIPMENT_SET_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_VEHICLE_EQUIPMENT_SET_KEY_IX]'
 END
 GO
 
---INDEX: B_RESERVATION_VEHICLE_OCCUPANT_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_VEHICLE_OCCUPANT]','U') AND i.name = 'B_RESERVATION_VEHICLE_OCCUPANT_ITEM_KEY_IX')
+--INDEX: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_FACILITY_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]','U') AND i.name = 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_FACILITY_KEY_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_VEHICLE_OCCUPANT_ITEM_KEY_IX] ON [dbo].[B_RESERVATION_VEHICLE_OCCUPANT]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_VEHICLE_OCCUPANT].[B_RESERVATION_VEHICLE_OCCUPANT_ITEM_KEY_IX]'
+    CREATE NONCLUSTERED INDEX [F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_FACILITY_KEY_IX] ON [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]([FACILITY_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_FACILITY_KEY_IX]'
 END
 GO
 
---INDEX: B_RESERVATION_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_RESERVATION_VEHICLE_OCCUPANT]','U') AND i.name = 'B_RESERVATION_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX')
+--INDEX: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_LOOP_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]','U') AND i.name = 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_LOOP_KEY_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_RESERVATION_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX] ON [dbo].[B_RESERVATION_VEHICLE_OCCUPANT]([OCCUPANT_TYPE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_RESERVATION_VEHICLE_OCCUPANT].[B_RESERVATION_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX]'
+    CREATE NONCLUSTERED INDEX [F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_LOOP_KEY_IX] ON [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]([LOOP_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_LOOP_KEY_IX]'
 END
 GO
 
-
-/*
-
-DO NOT deploy to UAT until TPWD CODE FREEZE finish
-
- * NOTES: Creates B_DAILY_ENTRANCE_OCCUPANT bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/19/2019  DMA-3756  Kelvin Wang	  Initialization.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_DAILY_ENTRANCE_OCCUPANT') IS NULL
+--INDEX: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_SITE_KEY_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]','U') AND i.name = 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_SITE_KEY_IX')
 BEGIN
-		CREATE TABLE [dbo].[B_DAILY_ENTRANCE_OCCUPANT](
-			[DAILY_ENTRANCE_OCCUPANT_KEY]  bigint          IDENTITY(1,1),
-			[ITEM_KEY]                  bigint          NULL,
-			[OCCUPANT_TYPE_NM]          varchar(255)    NULL,
-			[OCCUPANT_TYPE_CNT]         int             NULL,
-			[OCCUPANT_TYPE_ID]          bigint          NULL,
-			[DELETED_IND]               smallint        NULL,
-			[MART_CREATED_DTM]          datetime        NULL,
-			[MART_MODIFIED_DTM]         datetime        NULL
-		CONSTRAINT PK_B_DAILY_ENTRANCE_OCCUPANT PRIMARY KEY CLUSTERED ([DAILY_ENTRANCE_OCCUPANT_KEY])
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Daily Entrance Occupant Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'DAILY_ENTRANCE_OCCUPANT_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Name: Name of occupant type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'OCCUPANT_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Count: Count of certain occupant type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'OCCUPANT_TYPE_CNT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Identifier:  source system identifier for order profile occupant type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'OCCUPANT_TYPE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B Daily Entrance Occupant: Daily Entrance occupant bridge table.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_OCCUPANT'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_DAILY_ENTRANCE_OCCUPANT]'
+    CREATE NONCLUSTERED INDEX [F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_SITE_KEY_IX] ON [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]([SITE_KEY]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_SITE_KEY_IX]'
 END
 GO
 
---INDEX: B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_OCCUPANT]','U') AND i.name = 'B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX')
+--INDEX: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_MART_SOURCE_ID_IX
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]','U') AND i.name = 'F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_MART_SOURCE_ID_IX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX] ON [dbo].[B_DAILY_ENTRANCE_OCCUPANT]([ITEM_KEY], [OCCUPANT_TYPE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_OCCUPANT].[B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_OCCUPANT_TYPE_ID_IX]'
+    CREATE NONCLUSTERED INDEX [F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_MART_SOURCE_ID_IX] ON [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT].[F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT_MART_SOURCE_ID_IX]'
 END
 GO
 
---INDEX: B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_OCCUPANT]','U') AND i.name = 'B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_IX] ON [dbo].[B_DAILY_ENTRANCE_OCCUPANT]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_OCCUPANT].[B_DAILY_ENTRANCE_OCCUPANT_ITEM_KEY_IX]'
-END
 GO
 
-/*
+-- END: F_VEHICLE_EQUIPMENT_SET_ASSIGNMENT.sql
+--------------------------------------------------------------------------------
 
-DO NOT deploy to UAT until TPWD CODE FREEZE finish
-
- * NOTES: Creates B_DAILY_ENTRANCE_VEHICLE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/19/2019  DMA-3756  Kelvin Wang	  Initialization.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_DAILY_ENTRANCE_VEHICLE') IS NULL
-BEGIN
-		CREATE TABLE [dbo].[B_DAILY_ENTRANCE_VEHICLE](
-			[DAILY_ENTRANCE_VEHICLE_KEY]  bigint          IDENTITY(1,1),
-			[ITEM_KEY]                 bigint          NULL,
-			[VEHICLE_TYPE_NM]          varchar(255)    NULL,
-			[VEHICLE_PLATE_NB]         varchar(255)    NULL,
-			[VEHICLE_STATE_NM]         varchar(255)    NULL,
-			[VEHICLE_MAKER_NM]         varchar(255)    NULL,
-			[VEHICLE_MODEL_NM]         varchar(255)    NULL,
-			[VEHICLE_COLOR_NM]         varchar(255)    NULL,
-			[MART_SOURCE_ID]           bigint          NULL,
-			[DELETED_IND]              smallint        NULL,
-			[MART_CREATED_DTM]         datetime        NULL,
-			[MART_MODIFIED_DTM]        datetime        NULL
-		CONSTRAINT PK_B_DAILY_ENTRANCE_VEHICLE PRIMARY KEY CLUSTERED ([DAILY_ENTRANCE_VEHICLE_KEY])
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Daily Entrance Vehicle Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'DAILY_ENTRANCE_VEHICLE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Type Name: Name of vehicle type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'VEHICLE_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Plate Number: Number of vehicle plate.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'VEHICLE_PLATE_NB'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle State Name: State name of vehicle.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'VEHICLE_STATE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Maker Name: Name of vehicle maker.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'VEHICLE_MAKER_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Model Name: Name of vehicle model.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'VEHICLE_MODEL_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Vehicle Color Name: Name of vehicle color.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'VEHICLE_COLOR_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B Daily Entrance Vehicle: Daily Entrance vehicle bridge table.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_DAILY_ENTRANCE_VEHICLE]'
-END
-GO
-
---INDEX: B_DAILY_ENTRANCE_VEHICLE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_VEHICLE]','U') AND i.name = 'B_DAILY_ENTRANCE_VEHICLE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_VEHICLE_MART_SOURCE_ID_IX] ON [dbo].[B_DAILY_ENTRANCE_VEHICLE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_VEHICLE].[B_DAILY_ENTRANCE_VEHICLE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_DAILY_ENTRANCE_VEHICLE_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_VEHICLE]','U') AND i.name = 'B_DAILY_ENTRANCE_VEHICLE_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_VEHICLE_ITEM_KEY_IX] ON [dbo].[B_DAILY_ENTRANCE_VEHICLE]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_VEHICLE].[B_DAILY_ENTRANCE_VEHICLE_ITEM_KEY_IX]'
-END
-GO
-
-/*
-
-DO NOT deploy to UAT until TPWD CODE FREEZE finish
-
- * NOTES: Creates B_DAILY_ENTRANCE_VEHICLE_OCCUPANT bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/19/2019  DMA-3756  Kelvin Wang	  Initialization.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_DAILY_ENTRANCE_VEHICLE_OCCUPANT') IS NULL
-BEGIN
-		CREATE TABLE [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT](
-			[DAILY_ENTRANCE_VEHICLE_OCCUPANT_KEY]  bigint          IDENTITY(1,1),
-			[ITEM_KEY]                          bigint          NULL,
-			[DAILY_ENTRANCE_VEHICLE_KEY]           bigint          NULL,
-			[OCCUPANT_TYPE_NM]                  varchar(255)    NULL,
-			[OCCUPANT_TYPE_CNT]                 int             NULL,
-			[PROFILE_VEHICLE_ID]                bigint          NULL,
-			[OCCUPANT_TYPE_ID]                  bigint          NULL,
-			[DELETED_IND]                       smallint        NULL,
-			[MART_CREATED_DTM]                  datetime        NULL,
-			[MART_MODIFIED_DTM]                 datetime        NULL
-		CONSTRAINT PK_B_DAILY_ENTRANCE_VEHICLE_OCCUPANT PRIMARY KEY CLUSTERED ([DAILY_ENTRANCE_VEHICLE_OCCUPANT_KEY])
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Daily Entrance Vehicle Occupant Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'DAILY_ENTRANCE_VEHICLE_OCCUPANT_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Daily Entrance Vehicle Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'DAILY_ENTRANCE_VEHICLE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Name: Name of occupant type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'OCCUPANT_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Count: Count of certain occupant type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'OCCUPANT_TYPE_CNT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Profile Vehicle Identifier: source system identifier for order profile vehicle.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'PROFILE_VEHICLE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Occupant Type Identifier:  source system identifier for order profile occupant type.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'OCCUPANT_TYPE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B Daily Entrance Vehicle Occupant: Daily Entrance vehicle occupant bridge table.', 'schema', 'dbo', 'table', 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]'
-END
-GO
-
---INDEX: B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_DAILY_ENTRANCE_VEHICLE_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]','U') AND i.name = 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_DAILY_ENTRANCE_VEHICLE_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_DAILY_ENTRANCE_VEHICLE_KEY_IX] ON [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]([DAILY_ENTRANCE_VEHICLE_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_DAILY_ENTRANCE_VEHICLE_KEY_IX]'
-END
-GO
-
---INDEX: B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]','U') AND i.name = 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_ITEM_KEY_IX] ON [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_ITEM_KEY_IX]'
-END
-GO
-
---INDEX: B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]','U') AND i.name = 'B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX] ON [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT]([OCCUPANT_TYPE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT].[B_DAILY_ENTRANCE_VEHICLE_OCCUPANT_PROFILE_VEHICLE_ID_IX]'
-END
-GO
-
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_ORDER') AND name='CONFIRMATION_STATUS_NM')
-BEGIN
-	ALTER TABLE dbo.D_ORDER ADD CONFIRMATION_STATUS_NM varchar(100) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Confirmation status name.', 'schema', 'dbo', 'table', 'D_ORDER', 'column', 'CONFIRMATION_STATUS_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_ORDER].[CONFIRMATION_STATUS_NM]'
-END
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_ORDER') AND name='TOTAL_DISCOUNT_AMT')
-BEGIN
-	ALTER TABLE dbo.D_ORDER ADD TOTAL_DISCOUNT_AMT decimal(38, 6) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Total Discount Amount: the total of discounts applied to this order.', 'schema', 'dbo', 'table', 'D_ORDER', 'column', 'TOTAL_DISCOUNT_AMT'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_ORDER].[TOTAL_DISCOUNT_AMT]'
-END
-
-
-
-/*
- * NOTES: Creates B_TICKET_TOUR dimension for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 06/26/2019  DMA-3739  Zongpei Liu	  Initialization.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_TICKET_TOUR') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_TICKET_TOUR(
-		B_TICKET_TOUR_KEY           bigint          IDENTITY(1,1),
-		ITEM_KEY                    bigint          NULL,
-		TOUR_NM                     varchar(255)    NULL,
-		TOUR_START_DT               date            NULL,
-		TOUR_END_DT                 date            NULL,
-		MULTIPLE_DAYS_IND           smallint        NULL,
-		TOUR_START_TIME_TXT         varchar(10)     NULL,
-		TOUR_END_TIME_TXT           varchar(10)     NULL,
-		DELIVERY_METHOD_NM          varchar(255)    NULL,
-		TICKET_STATUS_NM            varchar(255)    NULL,
-		TOUR_STATUS_NM              varchar(255)    NULL,
-		TICKET_TYPE_NM              varchar(255)    NULL,
-		TICKET_QTY                  int             NULL,
-		PRINTED_CNT                 int             NULL,
-		TOUR_INSTANCE_ID            int             NULL,
-		ADMISSION_TYPE_ID           int             NULL,
-		TOUR_INVENTORY_ID           int             NULL,
-		MART_CREATED_DTM            datetime        NULL,
-		MART_MODIFIED_DTM           datetime        NULL,
-		CONSTRAINT PK_B_TICKET_TOUR PRIMARY KEY CLUSTERED (B_TICKET_TOUR_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Ticket Tour Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'B_TICKET_TOUR_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Item Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour Start date:Tour Start date', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TOUR_START_DT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour End Date:Tour End Date', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TOUR_END_DT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Multiple Days Indictor:Multiple Days Indictor', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'MULTIPLE_DAYS_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour Start time text:Tour Start time text', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TOUR_START_TIME_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour End Time Text:Tour End Time Text', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TOUR_END_TIME_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Delivery Method Name: Delivery Method Name', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'DELIVERY_METHOD_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Ticket Status Name:Ticket Status Name', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TICKET_STATUS_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour Status Name:Tour Status Name', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TOUR_STATUS_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Ticket Type Name: ticket type name.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TICKET_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Ticket quantity: ticket quantity.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TICKET_QTY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Print count:Print count', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'PRINTED_CNT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour Instance ID:Tour Instance ID', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'TOUR_INSTANCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Admission Type ID:Admission Type ID', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'ADMISSION_TYPE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Ticket_Tour: tour detail info.', 'schema', 'DBO', 'table', 'B_TICKET_TOUR'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_TICKET_TOUR]'
-END
-GO
-
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_TICKET_TOUR]','U') AND i.name = 'B_TICKET_TOUR_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_TICKET_TOUR_ITEM_KEY_IX] ON [dbo].[B_TICKET_TOUR]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_TICKET_TOUR].[B_TICKET_TOUR_ITEM_KEY_IX]'
-END
-GO
-
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_TICKET_TOUR]','U') AND i.name = 'B_TICKET_TOUR_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_TICKET_TOUR_MART_SOURCE_ID_IX] ON [dbo].[B_TICKET_TOUR](TOUR_INSTANCE_ID, ADMISSION_TYPE_ID) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_TICKET_TOUR].[B_TICKET_TOUR_MART_SOURCE_ID_IX]'
-END
-GO
-
-IF NOT EXISTS(SELECT * FROM sysobjects WHERE xtype = 'U' AND uid = 1 AND NAME = 'D_TICKET_BK20190729')
-BEGIN
-	SELECT * INTO D_TICKET_BK20190729 FROM D_TICKET WITH(NOLOCK)
-	PRINT 'Backuped D_TICKET'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_13_OVER_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_13_OVER_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_13_OVER_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='YOUTH_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN YOUTH_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[YOUTH_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='SIX_UP_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN SIX_UP_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[SIX_UP_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='FIVE_UNDER_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN FIVE_UNDER_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[FIVE_UNDER_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TWO_UNDER_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TWO_UNDER_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TWO_UNDER_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='GA_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN GA_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[GA_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='GAC_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN GAC_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[GAC_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOUR_GUIDE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TOUR_GUIDE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TOUR_GUIDE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='SELF_GUIDED_AUDIO_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN SELF_GUIDED_AUDIO_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[SELF_GUIDED_AUDIO_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='SELF_GUIDED_NON_AUDIO_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN SELF_GUIDED_NON_AUDIO_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[SELF_GUIDED_NON_AUDIO_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='MOTORCOACH_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN MOTORCOACH_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[MOTORCOACH_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ALL_TYPES_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ALL_TYPES_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ALL_TYPES_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='SENIOR_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN SENIOR_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[SENIOR_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='DVET_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN DVET_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[DVET_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='COMP_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN COMP_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[COMP_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='GENERAL_ADMISSION_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN GENERAL_ADMISSION_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[GENERAL_ADMISSION_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_PRE_PAID_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_PRE_PAID_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_PRE_PAID_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_12_UNDER_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_12_UNDER_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_12_UNDER_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_1_SITE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_1_SITE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_1_SITE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_2_SITE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_2_SITE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_2_SITE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_3_SITE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_3_SITE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_3_SITE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_W10_STUDENTS_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_W10_STUDENTS_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_W10_STUDENTS_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='BUS_DRIVER_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN BUS_DRIVER_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[BUS_DRIVER_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILDREN_0_5_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILDREN_0_5_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILDREN_0_5_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILDREN_6_15_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILDREN_6_15_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILDREN_6_15_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='FAMILY_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN FAMILY_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[FAMILY_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_0_4_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_0_4_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_0_4_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_5_12_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_5_12_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_5_12_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='SCHOOL_GROUP_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN SCHOOL_GROUP_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[SCHOOL_GROUP_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='YOUTH_GROUP_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN YOUTH_GROUP_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[YOUTH_GROUP_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ACTIVE_RETIRED_MILITARY_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ACTIVE_RETIRED_MILITARY_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ACTIVE_RETIRED_MILITARY_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='GROUP_ENTRY_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN GROUP_ENTRY_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[GROUP_ENTRY_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_6_12_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_6_12_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_6_12_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_4_11_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_4_11_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_4_11_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_0_3_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_0_3_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_0_3_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='SENIOR_65_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN SENIOR_65_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[SENIOR_65_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_1_SITE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_1_SITE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_1_SITE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_2_SITE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_2_SITE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_2_SITE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_3_SITE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_3_SITE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_3_SITE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_UNDER_13_ROUND_TRIP_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_UNDER_13_ROUND_TRIP_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_UNDER_13_ROUND_TRIP_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_UNDER_13_ONE_WAY_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_UNDER_13_ONE_WAY_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_UNDER_13_ONE_WAY_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_13_OVER_ONE_WAY_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_13_OVER_ONE_WAY_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_13_OVER_ONE_WAY_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_13_OVER_ROUND_TRIP_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_13_OVER_ROUND_TRIP_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_13_OVER_ROUND_TRIP_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TPWD_EMPLOYEE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TPWD_EMPLOYEE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TPWD_EMPLOYEE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_0_5_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_0_5_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_0_5_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_0_12_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_0_12_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_0_12_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CHILD_0_18_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN CHILD_0_18_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[CHILD_0_18_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='FAMILY_TICKET_NON_REFUNDABLE_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN FAMILY_TICKET_NON_REFUNDABLE_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[FAMILY_TICKET_NON_REFUNDABLE_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_GROUP_BF_IH_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_GROUP_BF_IH_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_GROUP_BF_IH_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_GROUP_BF_M_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_GROUP_BF_M_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_GROUP_BF_M_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_GROUP_IH_BF_M_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_GROUP_IH_BF_M_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_GROUP_IH_BF_M_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='ADULT_GROUP_IH_M_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN ADULT_GROUP_IH_M_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[ADULT_GROUP_IH_M_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='GROUP_BUS_DRIVER_TEACHER_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN GROUP_BUS_DRIVER_TEACHER_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[GROUP_BUS_DRIVER_TEACHER_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_GROUP_BF_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_GROUP_BF_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_GROUP_BF_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_GROUP_BF_IH_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_GROUP_BF_IH_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_GROUP_BF_IH_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_GROUP_BF_IH_M_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_GROUP_BF_IH_M_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_GROUP_BF_IH_M_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_GROUP_BF_M_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_GROUP_BF_M_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_GROUP_BF_M_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_GROUP_IH_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_GROUP_IH_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_GROUP_IH_QTY]'
-END
-
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='STUDENT_GROUP_IH_M_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN STUDENT_GROUP_IH_M_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[STUDENT_GROUP_IH_M_QTY]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOUR_START_DT')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TOUR_START_DT
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TOUR_START_DT]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOUR_END_DT')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TOUR_END_DT
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TOUR_END_DT]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='MULTIPLE_DAYS_IND')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN MULTIPLE_DAYS_IND
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[MULTIPLE_DAYS_IND]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOUR_START_TIME_TXT')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TOUR_START_TIME_TXT
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TOUR_START_TIME_TXT]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOUR_END_TIME_TXT')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TOUR_END_TIME_TXT
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TOUR_END_TIME_TXT]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOTAL_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN TOTAL_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[TOTAL_QTY]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='PRINTED_QTY')
-BEGIN
-        ALTER TABLE D_TICKET DROP COLUMN PRINTED_QTY
-        PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[PRINTED_QTY]'
-END
-
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TOUR_NM')
-BEGIN
-	ALTER TABLE D_TICKET ADD TOUR_NM varchar(255) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Tour Name.', 'schema', 'dbo', 'table', 'D_TICKET', 'column', 'TOUR_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_TICKET].[TOUR_NM]'
-END
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='TICKET_CONFIRMATION_STATUS_NM')
-BEGIN
-	ALTER TABLE D_TICKET ADD TICKET_CONFIRMATION_STATUS_NM varchar(100) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Ticket confirmation status name.', 'schema', 'dbo', 'table', 'D_TICKET', 'column', 'TICKET_CONFIRMATION_STATUS_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_TICKET].[TICKET_CONFIRMATION_STATUS_NM]'
-END
-
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='CONFIRMATION_STATUS_NM')
-BEGIN
-	EXEC sp_RENAME 'D_TICKET.CONFIRMATION_STATUS_NM' , 'TOUR_CONFIRMATION_STATUS_NM', 'COLUMN'
-	PRINT '[INFO] Renamed COLUMN [DBO].[D_TICKET.CONFIRMATION_STATUS_NM] to TOUR_CONFIRMATION_STATUS_NM'
-END
-GO
-
-/*
- * NOTES: Creates B_SITE_ATTRIBUTES dimension for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 4/08/2019   DMA-3755   Kelvin Wang      Initialization.
- * 6/3/2019    DMA-4252   Kelvin Wang      added ATTRIBUTE_GROUP_NM.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_SITE_ATTRIBUTES') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_SITE_ATTRIBUTES(
-			[SITE_ATTRIBUTES_KEY]                bigint            IDENTITY(1,1),
-			[PRODUCT_KEY]                        bigint            NULL,
-			[ATTRIBUTE_NM]                       varchar(255)      NULL,
-			[ATTRIBUTE_VALUE_TXT]                varchar(4000)     NULL,
-			[PRODUCT_ID]                         bigint            NULL,
-			[PRODUCT_ATTRIBUTE_ID]               bigint            NULL,
-			[MART_CREATED_DTM]                   datetime          NULL,
-			[MART_MODIFIED_DTM]                  datetime          NULL
-        CONSTRAINT PK_B_SITE_ATTRIBUTES PRIMARY KEY CLUSTERED (SITE_ATTRIBUTES_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Site Attributes Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'SITE_ATTRIBUTES_KEY'	
-    exec sys.sp_addextendedproperty 'MS_Description', 'Product Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'PRODUCT_KEY'	
-	exec sys.sp_addextendedproperty 'MS_Description', 'Site attribute name.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'ATTRIBUTE_NM'	
-	exec sys.sp_addextendedproperty 'MS_Description', 'Site attribute value.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'ATTRIBUTE_VALUE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Product ID in the source.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'PRODUCT_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Product Attribute ID in the source.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'PRODUCT_ATTRIBUTE_ID'
-    exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'MART_MODIFIED_DTM'
-    exec sys.sp_addextendedproperty 'MS_Description', 'Site Attributes: bridge table to maintain 1 to many relationship site and attributes.', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES'
-	
-	PRINT '[INFO] CREATED TABLE [DBO].[B_SITE_ATTRIBUTES]'
-END
-GO
-
---INDEX: B_SITE_ATTRIBUTES_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_SITE_ATTRIBUTES]','U') AND i.name = 'B_SITE_ATTRIBUTES_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_SITE_ATTRIBUTES_MART_SOURCE_ID_IX] ON [dbo].[B_SITE_ATTRIBUTES]([PRODUCT_ID],[PRODUCT_ATTRIBUTE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_SITE_ATTRIBUTES].[B_SITE_ATTRIBUTES_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_SITE_ATTRIBUTES_PRODUCT_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_SITE_ATTRIBUTES]','U') AND i.name = 'B_SITE_ATTRIBUTES_PRODUCT_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_SITE_ATTRIBUTES_PRODUCT_KEY_IX] ON [dbo].[B_SITE_ATTRIBUTES]([PRODUCT_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_SITE_ATTRIBUTES].[B_SITE_ATTRIBUTES_PRODUCT_KEY_IX]'
-END
-GO
-
---DMA-4252 added ATTRIBUTE_GROUP_NM.
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.B_SITE_ATTRIBUTES') AND name='ATTRIBUTE_GROUP_NM')
-BEGIN
-	ALTER TABLE B_SITE_ATTRIBUTES ADD ATTRIBUTE_GROUP_NM varchar(255) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'payment allocation datetime', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'ATTRIBUTE_GROUP_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[B_SITE_ATTRIBUTES].[ATTRIBUTE_GROUP_NM]'
-END
-
-
-/*
-
- * NOTES: Creates B_ORDER_TRANS_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/17/2019  DMA-3521  Zongpei Liu	  Initialization.
-
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_ORDER_TRANS_MESSAGE') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_ORDER_TRANS_MESSAGE(
-		ORDER_TRANS_MESSAGE_KEY              bigint           IDENTITY(1,1),
-		ORDER_KEY                            bigint           NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_TXT                          varchar(255)     NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_ORDER_TRANS_MESSAGE PRIMARY KEY CLUSTERED (ORDER_TRANS_MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Transaction Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'ORDER_TRANS_MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Key: surrogate key uniquely identifying this record in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'ORDER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Order_Transaction_Message: order transaction message.', 'schema', 'dbo', 'table', 'B_ORDER_TRANS_MESSAGE'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_ORDER_TRANS_MESSAGE]'
-END
-
---INDEX: B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([ORDER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_ORDER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX')
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LOCATION') AND name='LOCATION_NM')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_ORDER_TRANS_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_TRANS_MESSAGE].[B_ORDER_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX]'
+	ALTER TABLE D_LOCATION ADD LOCATION_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Location Name: name of the location.', 'schema', 'dbo', 'table', 'D_LOCATION', 'column', 'LOCATION_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LOCATION].[LOCATION_NM]'
 END
-GO
 
-
-
-
-/*
-
- * NOTES: Creates B_ORDER_ITEM_TRANS_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 04/17/2019  DMA-3521  Zongpei Liu	  Initialization.
-
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_ORDER_ITEM_TRANS_MESSAGE') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_ORDER_ITEM_TRANS_MESSAGE(
-		ORDER_ITEM_TRANS_MESSAGE_KEY         bigint           IDENTITY(1,1),
-		ITEM_KEY                             bigint           NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_TXT                          varchar(255)     NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_ORDER_ITEM_TRANS_MESSAGE PRIMARY KEY CLUSTERED (ORDER_ITEM_TRANS_MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Item Transaction Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'ORDER_ITEM_TRANS_MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Key: surrogate key uniquely identifying this record in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'ITEM_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Order_Item_Transaction_Message: order item transaction message.', 'schema', 'dbo', 'table', 'B_ORDER_ITEM_TRANS_MESSAGE'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_ORDER_ITEM_TRANS_MESSAGE]'
-END
-
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([ITEM_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_ITEM_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_ITEM_TRANS_MESSAGE]','U') AND i.name = 'B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_ORDER_ITEM_TRANS_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_ITEM_TRANS_MESSAGE].[B_ORDER_ITEM_TRANS_MESSAGE_CREATED_LOCATION_KEY_IX]'
-END
-GO
-
-
-
-/*
-
-DO NOT deploy until TPWD CODE FREEZE finish
-
-
- * NOTES: Creates B_LOCATION_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 01/24/2019  DMA-2916  Zongpei Liu	  Initialization.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_LOCATION_MESSAGE') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_LOCATION_MESSAGE(
-		MESSAGE_KEY                          bigint           IDENTITY(1,1),
-		LOCATION_KEY                         bigint           NULL,
-		MESSAGE_TYPE_NM                      varchar(50)      NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_START_DT                     date             NULL,
-		MESSAGE_END_DT                       date             NULL,
-		MESSAGE_TXT                          varchar(4000)    NULL,
-		INCLUDE_IN_CONFIMATION_LETTER_IND    smallint         NULL,
-		INCLUDE_IN_RECEIPT_IND               smallint         NULL,
-		INCLUDE_IN_PRINTED_PERMIT_IND        smallint         NULL,
-		APPLY_TO_TXT                         varchar(50)      NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		ACTIVE_IND                           smallint         NULL,
-		DELETED_IND                          smallint         NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_LOCATION_MESSAGE PRIMARY KEY CLUSTERED (MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Type Name: message type like note/alter.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MESSAGE_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Start Date: message start date.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MESSAGE_START_DT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message End Date: message end date.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MESSAGE_END_DT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Confirmation Letter Identifier: if include in confirmation letter.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'INCLUDE_IN_CONFIMATION_LETTER_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Receipt Identifier: if iclude in receipt.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'INCLUDE_IN_RECEIPT_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Printed Permit Identifier: if include in print permit.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'INCLUDE_IN_PRINTED_PERMIT_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Apply To Text: Apply to which location.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'APPLY_TO_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Active Indicator: 1 if this record is active in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'ACTIVE_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_LOCATION_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_LOCATION_MESSAGE]'
-END
-GO
-
-
---INDEX: B_LOCATION_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_LOCATION_MESSAGE]','U') AND i.name = 'B_LOCATION_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_LOCATION_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_LOCATION_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_LOCATION_MESSAGE].[B_LOCATION_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_LOCATION_MESSAGE_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_LOCATION_MESSAGE]','U') AND i.name = 'B_LOCATION_MESSAGE_CUSTOMER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_LOCATION_MESSAGE_CUSTOMER_KEY_IX] ON [dbo].[B_LOCATION_MESSAGE]([LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_LOCATION_MESSAGE].[B_LOCATION_MESSAGE_CUSTOMER_KEY_IX]'
-END
-GO
-
---INDEX: B_LOCATION_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_LOCATION_MESSAGE]','U') AND i.name = 'B_LOCATION_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_LOCATION_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_LOCATION_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_LOCATION_MESSAGE].[B_LOCATION_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
-
---INDEX: B_LOCATION_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_LOCATION_MESSAGE]','U') AND i.name = 'B_LOCATION_MESSAGE_CREATED_LOCATION_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_LOCATION_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_LOCATION_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_LOCATION_MESSAGE].[B_LOCATION_MESSAGE_CREATED_LOCATION_KEY_IX]'
-END
-GO
-
-
-/*
-
-DO NOT deploy until TPWD CODE FREEZE finish
-
-
- * NOTES: Creates B_ORDER_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 01/23/2019  DMA-3091  Zongpei Liu	  Initialization.
-
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_ORDER_MESSAGE') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_ORDER_MESSAGE(
-		MESSAGE_KEY                          bigint           IDENTITY(1,1),
-		ORDER_KEY                            bigint           NULL,
-		MESSAGE_TYPE_NM                      varchar(50)      NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_TXT                          varchar(4000)    NULL,
-		INCLUDE_IN_CONFIMATION_LETTER_IND    smallint         NULL,
-		INCLUDE_IN_RECEIPT_IND               smallint         NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		ACTIVE_IND                           smallint         NULL,
-		DELETED_IND                          smallint         NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_ORDER_MESSAGE PRIMARY KEY CLUSTERED (MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Order Key: surrogate key uniquely identifying this record in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'ORDER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Type Name: message type like note/alter.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MESSAGE_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Confirmation Letter Identifier: if include in confirmation letter.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'INCLUDE_IN_CONFIMATION_LETTER_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Receipt Identifier: if iclude in receipt.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'INCLUDE_IN_RECEIPT_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Active Indicator: 1 if this record is active in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'ACTIVE_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Order_Message: order message.', 'schema', 'dbo', 'table', 'B_ORDER_MESSAGE'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_ORDER_MESSAGE]'
-END
-
---INDEX: B_ORDER_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_MESSAGE]','U') AND i.name = 'B_ORDER_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_ORDER_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_MESSAGE].[B_ORDER_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_ORDER_MESSAGE_ORDER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_MESSAGE]','U') AND i.name = 'B_ORDER_MESSAGE_ORDER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_MESSAGE_ORDER_KEY_IX] ON [dbo].[B_ORDER_MESSAGE]([ORDER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_MESSAGE].[B_ORDER_MESSAGE_ORDER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_MESSAGE]','U') AND i.name = 'B_ORDER_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_ORDER_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_MESSAGE].[B_ORDER_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
-
---INDEX: B_ORDER_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_ORDER_MESSAGE]','U') AND i.name = 'B_ORDER_MESSAGE_CREATED_LOCATION_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_ORDER_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_ORDER_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_ORDER_MESSAGE].[B_ORDER_MESSAGE_CREATED_LOCATION_KEY_IX]'
-END
-GO
-
-/*
-
-DO NOT deploy until TPWD CODE FREEZE finish
-
-
- * NOTES: Creates B_SITE_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 01/24/2019  DMA-2916  Zongpei Liu	  Initialization.
-*/
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_SITE_MESSAGE') IS NULL
-BEGIN
-	CREATE TABLE DBO.B_SITE_MESSAGE(
-		MESSAGE_KEY                          bigint           IDENTITY(1,1),
-		PRODUCT_KEY                          bigint           NULL,
-		MESSAGE_TYPE_NM                      varchar(50)      NULL,
-		MESSAGE_CREATED_DTM                  datetime         NULL,
-		MESSAGE_START_DT                     date             NULL,
-		MESSAGE_END_DT                       date             NULL,
-		MESSAGE_TXT                          varchar(4000)    NULL,
-		INCLUDE_IN_CONFIMATION_LETTER_IND    smallint         NULL,
-		INCLUDE_IN_RECEIPT_IND               smallint         NULL,
-		INCLUDE_IN_PRINTED_PERMIT_IND        smallint         NULL,
-		APPLY_TO_TXT                         varchar(50)      NULL,
-		CREATED_USER_KEY                     bigint           NULL,
-		CREATED_LOCATION_KEY                 bigint           NULL,
-		ACTIVE_IND                           smallint         NULL,
-		DELETED_IND                          smallint         NULL,
-		MART_SOURCE_ID                       bigint           NULL,
-		MART_CREATED_DTM                     datetime         NULL,
-		MART_MODIFIED_DTM                    datetime         NULL,
-		CONSTRAINT PK_B_SITE_MESSAGE PRIMARY KEY CLUSTERED (MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Product Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'PRODUCT_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Type Name: message type like note/alter.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MESSAGE_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Start Date: message start date.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MESSAGE_START_DT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message End Date: message end date.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MESSAGE_END_DT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Confirmation Letter Identifier: if include in confirmation letter.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'INCLUDE_IN_CONFIMATION_LETTER_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Receipt Identifier: if iclude in receipt.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'INCLUDE_IN_RECEIPT_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Include In Printed Permit Identifier: if include in print permit.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'INCLUDE_IN_PRINTED_PERMIT_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Apply To Text: Apply to which location.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'APPLY_TO_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Active Indicator: 1 if this record is active in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'ACTIVE_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Site_Message: site message', 'schema', 'dbo', 'table', 'B_SITE_MESSAGE'
-
-PRINT '[INFO] CREATED TABLE [DBO].[B_SITE_MESSAGE]'
-END
-GO
-
-
---INDEX: B_SITE_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_SITE_MESSAGE]','U') AND i.name = 'B_SITE_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_SITE_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_SITE_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_SITE_MESSAGE].[B_SITE_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_SITE_MESSAGE_PRODUCT_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_SITE_MESSAGE]','U') AND i.name = 'B_SITE_MESSAGE_CUSTOMER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_SITE_MESSAGE_CUSTOMER_KEY_IX] ON [dbo].[B_SITE_MESSAGE]([PRODUCT_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_SITE_MESSAGE].[B_SITE_MESSAGE_CUSTOMER_KEY_IX]'
-END
-GO
-
---INDEX: B_SITE_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_SITE_MESSAGE]','U') AND i.name = 'B_SITE_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_SITE_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_SITE_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_SITE_MESSAGE].[B_SITE_MESSAGE_CREATED_USER_KEY_IX]'
-END
-GO
-
---INDEX: B_SITE_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_SITE_MESSAGE]','U') AND i.name = 'B_SITE_MESSAGE_CREATED_LOCATION_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_SITE_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_SITE_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_SITE_MESSAGE].[B_SITE_MESSAGE_CREATED_LOCATION_KEY_IX]'
-END
-GO
-
-
-
-/*
-
-DO NOT deploy until TPWD CODE FREEZE finish
-
-
- * NOTES: Creates B_CUSTOMER_MESSAGE bridge for AspiraOne datamart 
- *
- * DATE        JIRA      USER             DESCRIPTION
- * ----------  --------  ---------------  ---------------------------------------
- * 01/23/2019  DMA-3091  Zongpei Liu	  Initialization.
- */
-
-SET NOCOUNT ON
-
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED
-
-IF OBJECT_ID('DBO.B_CUSTOMER_MESSAGE') IS NULL
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LOCATION') AND name='LOOP_NM')
 BEGIN
-	CREATE TABLE DBO.B_CUSTOMER_MESSAGE(
-		MESSAGE_KEY             bigint           IDENTITY(1,1),
-		CUSTOMER_KEY            bigint           NULL,
-		MESSAGE_TYPE_NM         varchar(50)      NULL,
-		MESSAGE_CREATED_DTM     datetime         NULL,
-		MESSAGE_TXT             varchar(4000)    NULL,
-		CREATED_USER_KEY        bigint           NULL,
-		CREATED_LOCATION_KEY    bigint           NULL,
-		ACTIVE_IND              smallint         NULL,
-		DELETED_IND             smallint         NULL,
-		MART_SOURCE_ID          bigint           NULL,
-		MART_CREATED_DTM        datetime         NULL,
-		MART_MODIFIED_DTM       datetime         NULL,
-		CONSTRAINT PK_B_CUSTOMER_MESSAGE PRIMARY KEY CLUSTERED (MESSAGE_KEY)
-	) ON TX_CAMPING_MART_DATA
-
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MESSAGE_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Customer Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'CUSTOMER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Type Name: message type like note/alter.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MESSAGE_TYPE_NM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Created Date Time: message created time in source.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MESSAGE_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Message Text; message content.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MESSAGE_TXT'
-	exec sys.sp_addextendedproperty 'MS_Description', 'User Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'CREATED_USER_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'CREATED_LOCATION_KEY'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Active Indicator: 1 if this record is active in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'ACTIVE_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Deleted Indicator: 1 if this record has been deleted in the source system, otherwise 0.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'DELETED_IND'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Source Identifier: source system identifier for this record.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MART_SOURCE_ID'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Created Datetime: system date and time when this record was created in the mart.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MART_CREATED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'Mart Modified Datetime: system date and time when this record was last modified in the mart.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE', 'column', 'MART_MODIFIED_DTM'
-	exec sys.sp_addextendedproperty 'MS_Description', 'B_Customer_Message: customer message.', 'schema', 'dbo', 'table', 'B_CUSTOMER_MESSAGE'
-
-	PRINT '[INFO] CREATED TABLE [DBO].[B_CUSTOMER_MESSAGE]'
-END
-GO
-
-
---INDEX: B_CUSTOMER_MESSAGE_MART_SOURCE_ID_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_CUSTOMER_MESSAGE]','U') AND i.name = 'B_CUSTOMER_MESSAGE_MART_SOURCE_ID_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_CUSTOMER_MESSAGE_MART_SOURCE_ID_IX] ON [dbo].[B_CUSTOMER_MESSAGE]([MART_SOURCE_ID]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_CUSTOMER_MESSAGE].[B_CUSTOMER_MESSAGE_MART_SOURCE_ID_IX]'
-END
-GO
-
---INDEX: B_CUSTOMER_MESSAGE_CUSTOMER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_CUSTOMER_MESSAGE]','U') AND i.name = 'B_CUSTOMER_MESSAGE_CUSTOMER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_CUSTOMER_MESSAGE_CUSTOMER_KEY_IX] ON [dbo].[B_CUSTOMER_MESSAGE]([CUSTOMER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_CUSTOMER_MESSAGE].[B_CUSTOMER_MESSAGE_CUSTOMER_KEY_IX]'
-END
-GO
-
---INDEX: B_CUSTOMER_MESSAGE_CREATED_USER_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_CUSTOMER_MESSAGE]','U') AND i.name = 'B_CUSTOMER_MESSAGE_CREATED_USER_KEY_IX')
-BEGIN
-    CREATE NONCLUSTERED INDEX [B_CUSTOMER_MESSAGE_CREATED_USER_KEY_IX] ON [dbo].[B_CUSTOMER_MESSAGE]([CREATED_USER_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_CUSTOMER_MESSAGE].[B_CUSTOMER_MESSAGE_CREATED_USER_KEY_IX]'
+	ALTER TABLE D_LOCATION ADD LOOP_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Loop Name: name if the location is a loop.', 'schema', 'dbo', 'table', 'D_LOCATION', 'column', 'LOOP_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LOCATION].[LOOP_NM]'
 END
-GO
 
---INDEX: B_CUSTOMER_MESSAGE_CREATED_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[B_CUSTOMER_MESSAGE]','U') AND i.name = 'B_CUSTOMER_MESSAGE_CREATED_LOCATION_KEY_IX')
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LOCATION') AND name='STATION_NM')
 BEGIN
-    CREATE NONCLUSTERED INDEX [B_CUSTOMER_MESSAGE_CREATED_LOCATION_KEY_IX] ON [dbo].[B_CUSTOMER_MESSAGE]([CREATED_LOCATION_KEY]) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[B_CUSTOMER_MESSAGE].[B_CUSTOMER_MESSAGE_CREATED_LOCATION_KEY_IX]'
+	ALTER TABLE D_LOCATION ADD STATION_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Station Name: name if the location is a station.', 'schema', 'dbo', 'table', 'D_LOCATION', 'column', 'STATION_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LOCATION].[STATION_NM]'
 END
-GO
 
-
-
-
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.B_SITE_ATTRIBUTES') AND name='ATTRIBUTE_GROUP_NM')
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LOCATION') AND name='CATEGORY_NM')
 BEGIN
-	ALTER TABLE B_SITE_ATTRIBUTES ADD ATTRIBUTE_GROUP_NM varchar(255) NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'payment allocation datetime', 'schema', 'dbo', 'table', 'B_SITE_ATTRIBUTES', 'column', 'ATTRIBUTE_GROUP_NM'
-	PRINT '[INFO] ADD COLUMN [DBO].[B_SITE_ATTRIBUTES].[ATTRIBUTE_GROUP_NM]'
+	ALTER TABLE D_LOCATION ADD CATEGORY_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Category Name: name of the location category.', 'schema', 'dbo', 'table', 'D_LOCATION', 'column', 'CATEGORY_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LOCATION].[CATEGORY_NM]'
 END
-
 
-IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_SITE') AND name='LOCATION_KEY')
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LOCATION') AND name='TYPE_NM')
 BEGIN
-	ALTER TABLE D_SITE ADD LOCATION_KEY bigint NULL
-	exec sys.sp_addextendedproperty 'MS_Description', 'Location Key: surrogate key used to uniquely identify a record in the data mart.', 'schema', 'dbo', 'table', 'D_SITE', 'column', 'LOCATION_KEY'
-	PRINT '[INFO] ADD COLUMN [DBO].[D_SITE].[LOCATION_KEY]'
+	ALTER TABLE D_LOCATION ADD TYPE_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Type Name: name of the location type.', 'schema', 'dbo', 'table', 'D_LOCATION', 'column', 'TYPE_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LOCATION].[TYPE_NM]'
 END
 
---INDEX: D_SITE_LOCATION_KEY_IX
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[D_SITE]','U') AND i.name = 'D_SITE_LOCATION_KEY_IX')
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_SITE') AND name='LOOP_NM')
 BEGIN
-    CREATE NONCLUSTERED INDEX [D_SITE_LOCATION_KEY_IX] ON [dbo].[D_SITE](LOCATION_KEY) ON TX_CAMPING_MART_IDX
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[D_SITE].[D_SITE_LOCATION_KEY_IX]'
+	ALTER TABLE D_SITE ADD LOOP_NM varchar(255) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'Loop Name: name of the loop in which the site is located.', 'schema', 'dbo', 'table', 'D_SITE', 'column', 'LOOP_NM'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_SITE].[LOOP_NM]'
 END
-GO
