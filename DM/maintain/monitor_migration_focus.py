@@ -131,7 +131,6 @@ if __name__ == '__main__':
         body = """
         Hi team,<br><br>
             Here is the NJ Migration Tables Change List for today, please take a look.<br><br><br>
-        
         <html>
         <body>""" + change_pd.to_html(index_names=False) + '</body></html>' 
         attachments = [os.getcwd()+LOG_FILE[1:]]

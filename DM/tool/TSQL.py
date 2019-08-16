@@ -3,7 +3,7 @@ import sys
 
 from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas, query
 
-'''
+
 def inquery_single_row(query, cursor):
     
     #print(query)    
@@ -13,7 +13,7 @@ def inquery_single_row(query, cursor):
         return str(result[0][0])
     else :
         return ''
-
+'''
 def search_empty_tables(cursor) -> list:
 
     print("\033[32m=== " + sys._getframe().f_code.co_name + " ===\033[0m\n\n")

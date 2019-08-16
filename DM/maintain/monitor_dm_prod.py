@@ -4,7 +4,7 @@ sys.path.append(os.getcwd())
 import datetime
 
 from db_connect.sqlserver_db import UseSqlserverDB, DBConnectionError, CredentialsError, SQLError, UseSqlserverDBPandas
-import tool.TSQL as TSQL
+from tool.TSQL import inquery_single_row
 
 import conf.acct_oracle as acct_oracle
 import conf.acct as acct
@@ -22,7 +22,7 @@ def getMartTime(mart_server, mart_list, model_type, matrix):
                 query = "SELECT MAX(SRC_SNPSHT_DT) FROM " + schema + "_HF_MART.DBO.F_ORDER_ITEM_TRANSACTION WITH(NOLOCK)"
             elif model_type == 'Camping':
                 query = "SELECT MAX(ORDER_DTM) FROM " + schema + "_CAMPING_MART.DBO.D_ORDER WITH(NOLOCK)"
-            result = TSQL.inquery_single_row(query,cursor)
+            result = inquery_single_row(query,cursor)
 
             for item in matrix:
                 if item[0] == schema:
