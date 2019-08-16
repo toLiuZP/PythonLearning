@@ -135,11 +135,14 @@ for line in lines:
     # generate drop table statement
     if line.startswith("CREATE TABLE"):
         start_position = line.find('.')
-        table_nm = line[start_position+1:].replace(' ','')
-        end_position = table_nm.find('(')
-        table_nm = table_nm[:end_position]
-        new_table_list.append(table_nm)
-        rollback_sql += gen_drop_table(table_nm)
+        if start_position == -1:
+            print("There is no 'DBO.' at: " + line)
+        else:
+            table_nm = line[start_position+1:].replace(' ','')
+            end_position = table_nm.find('(')
+            table_nm = table_nm[:end_position]
+            new_table_list.append(table_nm)
+            rollback_sql += gen_drop_table(table_nm)
     # generate rename table statement
     elif line.startswith("EXEC SP_RENAME") and line.endswith("'COLUMN'") == False:
         original_table_start_position = line.find('.')
