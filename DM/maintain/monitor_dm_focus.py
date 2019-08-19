@@ -28,7 +28,7 @@ BASE_FILE = r".\maintain\monitor\Focus_Source_Base.xlsx"
 LOG_FILE = r".\maintain\monitor\Focus_Change_Log.xlsx"
 log_workbook = load_workbook(LOG_FILE)
 
-TARGET_DB = acct.QA_NJDMAQA
+TARGET_DB = acct.UAT_NJSTAGEUAT
 meta = pd.DataFrame(columns = ['table_type','table_name','sql'])
 ddl_pd = pd.DataFrame(columns =['ref_table','ref_column','typename','precision','scale','max_length','nullable','impact_table'])
 

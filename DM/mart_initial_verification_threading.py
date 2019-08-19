@@ -5,6 +5,7 @@
 # validate if any key is all -1 value or any column is all null except -1 row
 # check if there is -1 row in D_ and R_
 #
+# check 32 non-empty table(s) verified.
 ##
 import pandas as pd
 import sys
@@ -20,7 +21,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.PROD_KS_HF_MART
+TARGET_DB = acct.UAT_NC_CAMPING_MART
 table_list = []
 messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
 #table_list = ['B_DAILY_ENTRANCE_VEHICLE_OCCUPANT']

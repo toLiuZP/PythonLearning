@@ -1,7 +1,6 @@
 DM/conf/acct.py
 DM/conf/acct_oracle.py
-DM/output/
-DM/tool/send_mail.py
+DM/output/*
 DM/conf/acct_af.py
 DM/conf/acct_af_source.py
 DM/seed/gen.sql
@@ -10,7 +9,5 @@ DM/tool/__pycache__/__init__.cpython-36.pyc
 DM/seed/SYNC_TARGET_DB.sql
 DM/seed/release_scripts.sql
 DM/seed/Domain Data Template.xlsx
-
 DM/conf/acct_focus.py
-DM/seed/Focus_Change_Log.xlsx
-DM/seed/Focus_Change_Log.xlsx
+DM/maintain/monitor/Focus_Change_Log.xlsx
