@@ -3,9 +3,9 @@ DM/conf/acct_oracle.py
 DM/output/*
 DM/conf/acct_af.py
 DM/conf/acct_af_source.py
-DM/seed/gen.sql
+DM/seed/*
 .DS_Store
-DM/tool/__pycache__/__init__.cpython-36.pyc
+DM/tool/__pycache__/*
 DM/seed/SYNC_TARGET_DB.sql
 DM/seed/release_scripts.sql
 DM/seed/Domain Data Template.xlsx

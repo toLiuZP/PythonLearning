@@ -47,9 +47,9 @@ def read_mapping(workbook):
                 meta = meta.append(pd.DataFrame({'table_type':[table_type],'table_name':[cell_nm],'sql':[sql]}),ignore_index=True)
 
 
-def tt(x): 
+def remove_first_comma(x): 
     if x.name == "impact_list":
-        return [el[1:] for el in x.values]
+        return [value[1:] for value in x.values]
     else:
         return x
 
@@ -79,12 +79,12 @@ def create_base(meta):
     ddl_pd = ddl_pd.reset_index(drop=True)
 
 
-    new_test = ddl_pd.groupby(['ref_table','ref_column','typename','precision','scale','max_length','nullable']).agg(
+    ddl_pd = ddl_pd.groupby(['ref_table','ref_column','typename','precision','scale','max_length','nullable']).agg(
         impact_list = pd.NamedAgg(column = 'impact_table', aggfunc = 'sum')
     )
 
-    new_test = new_test.apply(tt)
-    new_test.to_excel(BASE_FILE,sheet_name = "DDL")
+    ddl_pd = ddl_pd.apply(remove_first_comma)
+    ddl_pd.to_excel(BASE_FILE,sheet_name = "DDL")
 
 
 @logger

@@ -9,15 +9,16 @@ import time
 import sys
 sys.path.append(os.getcwd())
 from db_connect.sqlserver_db import UseSqlserverDB
-import conf.acct_af_source as acct
+#import conf.acct_af_source as acct
+import conf.acct_focus as acct
 import tool.tool as tool
 
-CURRENT_DB = acct.DEV_NJ_MIRG
+CURRENT_DB = acct.QA_NJDMAQA
 
 nameTime = time.strftime('%Y%m%d%H%M%S')
 excelName = tool.file_name('Mart_data','xlsx')
 
-writer = pd.ExcelWriter(excelName)
+#writer = pd.ExcelWriter(excelName)
 
 with UseSqlserverDB(CURRENT_DB) as cursor:
 
@@ -27,9 +28,9 @@ with UseSqlserverDB(CURRENT_DB) as cursor:
 
     df = pd.DataFrame(row)
     df.columns = ["Type","Name","Definition"]
-    df.to_excel(writer,sheet_name = "data")
+    df.to_excel(excelName,sheet_name = "data")
 
-writer.save()
+#writer.save()
         
 
 
