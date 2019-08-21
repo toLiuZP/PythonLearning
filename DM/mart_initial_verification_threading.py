@@ -268,7 +268,7 @@ if __name__ == '__main__':
                 messager = messager.sort_values(by=['msg_type','table_nm','column_nm'])
                 for index, row in messager.iterrows():
                     print (row["messager"])
-                print(str(len(messager['table_nm'].unique()))+" non-empty table(s) verified.")
+                print(str(len(tables_result[0]))+" non-empty table(s) verified.")
         else:
             print("\n\n\033[33mAll "+str(tables_result[1])+" table(s) are empty.\033[0m")
 
