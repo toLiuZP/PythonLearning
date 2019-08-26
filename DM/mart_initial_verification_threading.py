@@ -5,12 +5,6 @@
 # validate if any key is all -1 value or any column is all null except -1 row
 # check if there is -1 row in D_ and R_
 #
-# check 32 non-empty table(s) verified.
-
-# D_BATCH.VOID_LOCATION_KEY is all -1, please verify.
-# D_BATCH.VOID_LOCATION_KEY has NULL value, please verify.
-# TODO: Add not validate list
-# TODO: Add message category in print
 ##
 import pandas as pd
 import sys
