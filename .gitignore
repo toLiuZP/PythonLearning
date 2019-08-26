@@ -1,13 +1,14 @@
+*.sql
+*.xlsx
 DM/conf/acct.py
 DM/conf/acct_oracle.py
-DM/output/*
-DM/conf/acct_af.py
-DM/conf/acct_af_source.py
-DM/seed/*
-.DS_Store
-DM/tool/__pycache__/*
-DM/seed/SYNC_TARGET_DB.sql
-DM/seed/release_scripts.sql
-DM/seed/Domain Data Template.xlsx
 DM/conf/acct_focus.py
-DM/maintain/monitor/Focus_Change_Log.xlsx
+DM/conf/acct_af_source.py
+DM/output/*
+DM/seed/*
+DM/tool/__pycache__/*
+
+
+
+
+
