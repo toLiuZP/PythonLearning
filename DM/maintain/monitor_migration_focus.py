@@ -5,6 +5,7 @@
 ###
 
 import pandas as pd
+import numpy as np 
 import datetime
 from openpyxl import Workbook
 from openpyxl import load_workbook
@@ -41,6 +42,9 @@ MINITOR_TABLE_LIST = [
 'CustomerQualificationFarmerCertification',
 'CustomerRestriction',
 'CustomerRestrictionDetail',
+'CustomerVessel',
+'CustomerVesselGearType',
+'CustomerVesselOwnership',
 'Document',
 'DocumentDetail',
 'DrawTicket',
@@ -53,6 +57,7 @@ MINITOR_TABLE_LIST = [
 'HuntSeasonHunt',
 'HuntTypeLicenseYear',
 'Item',
+'ItemAmountCalculateUnit',
 'ItemFee',
 'ItemFeeDistribution',
 'ItemPackage',
@@ -61,8 +66,15 @@ MINITOR_TABLE_LIST = [
 'ItemRule',
 'ItemRuleParameter',
 'ItemSalesBlackout',
+'LEPermit',
 'License',
 'LicenseAction',
+'LicenseAncillaryData',
+'LicenseReport',
+'LicenseReportAnswer',
+'LicenseReportAnswerGroup',
+'LicenseReportAnswerRow',
+'LicenseUnitEntry',
 'Outlet',
 'OutletBusinessHours',
 'OutletPaymentMethod',
@@ -103,23 +115,37 @@ def create_base():
 @logger
 def validate_base(workbook,log_wb,LOG_FILE):
 
-    change_pd = pd.DataFrame(columns = ['change_date','source_table_name','source_column_name','previous_column_type','new_column_type','previous_precision','new_precision','previous_scale','new_scale','previous_length','new_length','previous_nullable','new_nullable'])
+    change_pd = pd.DataFrame(columns = ['change_date','change_type','source_table_name','source_column_name','previous_column_type','new_column_type','previous_precision','new_precision','previous_scale','new_scale','previous_length','new_length','previous_nullable','new_nullable'])
     log_sheet = log_wb.get_sheet_by_name('Log')
-    all_sheet = workbook.get_sheet_by_name('DDL')
+    all_sheet = pd.read_excel(BASE_FILE)
     table_list = ''
-    for cell in all_sheet['A']:
-        table_list = table_list + ",'" + cell.value + "'"
+    for cell in all_sheet['ref_table']:
+        table_list = table_list + ",'" + cell + "'"
  
-    rs = query_meta_data(table_list,TARGET_DB)
+    rs = pd.DataFrame(query_meta_data(table_list,TARGET_DB))
+    rs.columns = ['ref_table','ref_column','typename','precision','scale','max_length','nullable']
 
-    for row in all_sheet.rows:
-        for line in rs:
-            if row[0].value == line[0] and row[1].value == line[1]:
-                if row[2].value != line[2] or row[3].value != line[3] or row[4].value != line[4] or row[5].value != line[5] or str(row[6].value) != str(line[6]):
-                    change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'source_table_name':[row[0].value],'source_column_name':[row[1].value],'previous_column_type':[row[2].value],'new_column_type':[line[2]],'previous_precision':[row[3].value],'new_precision':[line[3]],'previous_scale':[row[4].value],'new_scale':[line[4]],'previous_length':[row[5].value],'new_length':[line[5]],'previous_nullable':[row[6].value],'new_nullable':[line[6]]}),ignore_index=True)
-                    log_sheet.append([datetime.date.today(),row[0].value,row[1].value,row[2].value,line[2],row[3].value,line[3],row[4].value,line[4],str(row[5].value),str(line[5]),str(row[6].value).upper(),line[6]])
-                break
-        
+    gap = pd.merge(all_sheet, rs, on = ['ref_table','ref_column'], how='outer')
+
+    for index, col in gap.iterrows():
+        if col[2] == col[7] and str(int(col[3])) == col[8] \
+            and str(int(col[4])) == col[9] and str(int(col[5])) == col[10] and col[6] == col[11]:
+            gap = gap.drop(index)
+
+    gap = gap.sort_values(by = ['ref_table','ref_column'])
+
+    for index, col in gap.iterrows():
+
+        if str(col[2]) == 'nan':
+            change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'change_type':['Added'],'source_table_name':[col[0]],'source_column_name':[col[1]],'previous_column_type':[' '],'new_column_type':[col[7]],'previous_precision':[' '],'new_precision':[col[8]],'previous_scale':[' '],'new_scale':[col[9]],'previous_length':[' '],'new_length':[col[10]],'previous_nullable':[' '],'new_nullable':[col[11]]}),ignore_index=True)
+            log_sheet.append([datetime.date.today(),'Added',col[0],col[1],'',col[7],'',col[8],'',col[9],'',col[10],'',col[11]])
+        elif str(col[7]) == 'nan':
+            change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'change_type':['Deleted'],'source_table_name':[col[0]],'source_column_name':[col[1]],'previous_column_type':[col[2]],'new_column_type':[''],'previous_precision':[col[3]],'new_precision':[''],'previous_scale':[col[4]],'new_scale':[''],'previous_length':[col[5]],'new_length':[''],'previous_nullable':[col[6]],'new_nullable':['']}),ignore_index=True)
+            log_sheet.append([datetime.date.today(),'Deleted',col[0],col[1],col[2],'',col[3],'',col[4],'',col[5],'',col[6],''])
+        else:
+            change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'change_type':['Updated'],'source_table_name':[col[0]],'source_column_name':[col[1]],'previous_column_type':[col[2]],'new_column_type':[col[7]],'previous_precision':[col[3]],'new_precision':[col[8]],'previous_scale':[col[4]],'new_scale':[col[9]],'previous_length':[col[5]],'new_length':[col[10]],'previous_nullable':[col[6]],'new_nullable':[col[11]]}),ignore_index=True)
+            log_sheet.append([datetime.date.today(),'Updated',col[0],col[1],col[2],col[7],col[3],col[8],col[4],col[9],col[5],col[10],col[6],col[11]])
+      
     log_wb.save(LOG_FILE)
     return change_pd
 
@@ -132,7 +158,7 @@ if __name__ == '__main__':
         Hi team,<br><br>
             Here is the NJ Migration Tables Change List for today, please take a look.<br><br><br>
         <html>
-        <body>""" + change_pd.to_html(index_names=False) + '</body></html>' 
+        <body>""" + change_pd.to_html(index=False) + '</body></html>' 
         attachments = [os.getcwd()+LOG_FILE[1:]]
         #mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Aspira_DMA_AspiraFocus_Migration@aspiraconnect.com'],body,attachments)
         mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
