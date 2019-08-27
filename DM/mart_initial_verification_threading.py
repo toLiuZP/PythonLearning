@@ -20,10 +20,10 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.PROD_OR_CAMPING_MART
+TARGET_DB = acct.QA_TX_CAMPING_MART
 table_list = []
 messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
-#table_list = ['B_DAILY_ENTRANCE_VEHICLE_OCCUPANT']
+#table_list = ['B_RESERVATION_VEHICLE_OCCUPANT_DATES']
 not_validate_list = []
 #not_validate_list = ['F_PAYMENT_ALLOCATION']
 
@@ -76,12 +76,16 @@ def search_empty_tables(table_list,not_validate_list) -> list:
                 if table_name in not_validate_list:
                     continue
 
-            if identify_backup_tables(table_name.lower()):
-                not_validate_list.append(table_name)
-                continue
-
             if table_list:
                 if table_name not in table_list:
+                    continue
+                else:
+                    if identify_backup_tables(table_name.lower()):
+                        not_validate_list.append(table_name)
+                        continue
+            else:
+                if identify_backup_tables(table_name.lower()):
+                    not_validate_list.append(table_name)
                     continue
             
             rs_table_data = query(cursor,sql_text)
@@ -272,7 +276,7 @@ if __name__ == '__main__':
                     for index, row in messager[messager['msg_type'].isin(['1 empty_table'])].iterrows():
                         print ("    "+row["messager"])
                 if not messager[messager['msg_type'].isin(['2 check_default_row'])].empty:
-                    print("\nFollowing table(s) do not have defualt row:\n")
+                    print("\nFollowing table(s) do not have default row:\n")
                     for index, row in messager[messager['msg_type'].isin(['2 check_default_row'])].iterrows():
                         print ("    "+row["messager"])
                 if not messager[messager['msg_type'].isin(['3 translation'])].empty:
