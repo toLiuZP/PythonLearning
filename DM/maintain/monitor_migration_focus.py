@@ -160,8 +160,8 @@ if __name__ == '__main__':
         <html>
         <body>""" + change_pd.to_html(index=False) + '</body></html>' 
         attachments = [os.getcwd()+LOG_FILE[1:]]
-        #mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Aspira_DMA_AspiraFocus_Migration@aspiraconnect.com'],body,attachments)
-        mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
+        mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Aspira_DMA_AspiraFocus_Migration@aspiraconnect.com'],body,attachments)
+        #mail('(Auto Generation) NJ Migration Tables Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
         create_base()
     else :
         body = """

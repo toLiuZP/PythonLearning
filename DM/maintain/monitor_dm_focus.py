@@ -131,8 +131,8 @@ if __name__ == '__main__':
             Here is the NJ Source change list for today, please take a look.<br><br><br>
         <html><body>""" + change_pd.to_html(index=False) + '</body></html>' 
         attachments = [os.getcwd()+LOG_FILE[1:]]
-        #mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com;zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Gary.Zhou@aspiraconnect.com;Tim.Wang@aspiraconnect.com;Kelvin.Wang@aspiraconnect.com'],body,attachments)
-        mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
+        mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com;zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Gary.Zhou@aspiraconnect.com;Tim.Wang@aspiraconnect.com;Kelvin.Wang@aspiraconnect.com'],body,attachments)
+        #mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
         read_mapping(seed_workbook)
         create_base(meta)
     else:
