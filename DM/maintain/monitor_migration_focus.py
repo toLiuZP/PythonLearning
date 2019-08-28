@@ -151,7 +151,7 @@ def validate_base(workbook,log_wb,LOG_FILE):
 
 
 if __name__ == '__main__':
-    
+
     change_pd = validate_base(base_workbook,log_workbook,LOG_FILE)
     if not change_pd.empty:
         body = """

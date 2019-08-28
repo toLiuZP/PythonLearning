@@ -1,7 +1,7 @@
 ###
 #  monitor Focus source
 #  determine if the changes impact Mart
-# 
+# TODO: add SVN version check.
 ###
 
 import pandas as pd
@@ -66,7 +66,7 @@ def create_base(meta):
             create_sql = "CREATE VIEW V_CDC_TEMP_"+ tb_name +" AS " + sql
             execute(cursor,create_sql)
 
-            check_sql = "SELECT a.referenced_entity_name as ref_table ,a.referenced_minor_name as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable, '," + tb_name + "' AS impact_table FROM sys.dm_sql_referenced_entities ( 'DBO.V_CDC_TEMP_" + tb_name + "', 'OBJECT') a inner join sys.all_columns b on a.referenced_minor_name = b.name and a.referenced_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype where a.referenced_minor_name is not null order by 1,2"
+            check_sql = "SELECT lower(a.referenced_entity_name) as ref_table ,lower(a.referenced_minor_name) as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable, '," + tb_name + "' AS impact_table FROM sys.dm_sql_referenced_entities ( 'DBO.V_CDC_TEMP_" + tb_name + "', 'OBJECT') a inner join sys.all_columns b on a.referenced_minor_name = b.name and a.referenced_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype where a.referenced_minor_name is not null order by 1,2"
             
             signle = pd.DataFrame(query(cursor,check_sql))
             signle.columns = ['ref_table','ref_column','typename','precision','scale','max_length','nullable','impact_table']
@@ -74,10 +74,6 @@ def create_base(meta):
 
             drop_sql = "DROP VIEW V_CDC_TEMP_"+ tb_name
             execute(cursor,drop_sql)
-  
-    ddl_pd = ddl_pd.sort_values(by=['ref_table','ref_column'])
-    ddl_pd = ddl_pd.reset_index(drop=True)
-
 
     ddl_pd = ddl_pd.groupby(['ref_table','ref_column','typename','precision','scale','max_length','nullable']).agg(
         impact_list = pd.NamedAgg(column = 'impact_table', aggfunc = 'sum')
@@ -90,7 +86,7 @@ def create_base(meta):
 @logger
 def validate_base(log_wb,LOG_FILE):
 
-    change_pd = pd.DataFrame(columns = ['change_date','impact_list','source_table_name','source_column_name','previous_column_type','new_column_type','previous_precision','new_precision','previous_scale','new_scale','previous_length','new_length','previous_nullable','new_nullable'])
+    change_pd = pd.DataFrame(columns = ['change_date','change_type','impact_list','source_table_name','source_column_name','previous_column_type','new_column_type','previous_precision','new_precision','previous_scale','new_scale','previous_length','new_length','previous_nullable','new_nullable'])
     log_sheet = log_wb.get_sheet_by_name('Log')
 
     base_ddl = pd.read_excel(BASE_FILE)
@@ -100,16 +96,27 @@ def validate_base(log_wb,LOG_FILE):
     for table_name in base_ddl['ref_table']:
         table_list = table_list + ",'" + table_name + "'"
 
-    rs = query_meta_data(table_list,TARGET_DB)
+    rs = pd.DataFrame(query_meta_data(table_list,TARGET_DB))
+    rs.columns = ['ref_table','ref_column','typename','precision','scale','max_length','nullable']
 
-    for index, row in base_ddl.iterrows():
-        for line in rs:
-            if row[0] == line[0] and row[1] == line[1]:
-                if str(row[2]) != line[2] or str(row[3]) != line[3] or str(row[4]) != line[4] or str(row[5]) != line[5] or str(row[6]) != str(line[6]):
-                    change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'impact_list':[row[7]],'source_table_name':[row[0]],'source_column_name':[row[1]],'previous_column_type':[row[2]],'new_column_type':[line[2]],'previous_precision':[row[3]],'new_precision':[line[3]],'previous_scale':[row[4]],'new_scale':[line[4]],'previous_length':[row[5]],'new_length':[line[5]],'previous_nullable':[row[6]],'new_nullable':[line[6]]}),ignore_index=True)
-                    log_sheet.append([datetime.date.today(),row[7],row[0],row[1],row[2],line[2],row[3],line[3],row[4],line[4],str(row[5]),str(line[5]),str(row[6]).upper(),line[6]])
-                break
-        
+    gap = pd.merge(base_ddl, rs, on = ['ref_table','ref_column'], how='outer')
+
+    for index, col in gap.iterrows():
+        if col[2] == col[8] and str(int(col[3])) == col[9] \
+            and str(int(col[4])) == col[10] and str(int(col[5])) == col[11] and col[6] == col[12]:
+            gap = gap.drop(index)
+
+    gap = gap.sort_values(by = ['ref_table','ref_column'])
+
+    for index, col in gap.iterrows():
+
+        if str(col[8]) == 'nan':
+            change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'change_type':['Deleted'],'impact_list':[col[7]],'source_table_name':[col[0]],'source_column_name':[col[1]],'previous_column_type':[col[2]],'new_column_type':[''],'previous_precision':[col[3]],'new_precision':[''],'previous_scale':[col[4]],'new_scale':[''],'previous_length':[col[5]],'new_length':[''],'previous_nullable':[col[6]],'new_nullable':['']}),ignore_index=True)
+            log_sheet.append([datetime.date.today(),'Deleted',col[7],col[0],col[1],col[2],'',col[3],'',col[4],'',col[5],'',col[6],''])
+        elif str(col[2]) != 'nan':
+            change_pd = change_pd.append(pd.DataFrame({'change_date':[datetime.date.today()],'change_type':['Updated'],'impact_list':[col[7]],'source_table_name':[col[0]],'source_column_name':[col[1]],'previous_column_type':[col[2]],'new_column_type':[col[8]],'previous_precision':[col[3]],'new_precision':[col[9]],'previous_scale':[col[4]],'new_scale':[col[10]],'previous_length':[col[5]],'new_length':[col[11]],'previous_nullable':[col[6]],'new_nullable':[col[12]]}),ignore_index=True)
+            log_sheet.append([datetime.date.today(),'Updated',col[7],col[0],col[1],col[2],col[8],col[3],col[9],col[4],col[10],col[5],col[11],col[6],col[12]])
+
     log_wb.save(LOG_FILE)
     return change_pd
 
@@ -135,5 +142,4 @@ if __name__ == '__main__':
         <html>
         <body> </body></html>"""
         mail('(Auto Generation) All good for NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body)
-        
     

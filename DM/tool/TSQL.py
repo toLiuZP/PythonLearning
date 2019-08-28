@@ -96,7 +96,7 @@ def query_meta_data(table_list,target_db):
     if table_list[0:1] == ',':
         table_list = table_list[1:]
 
-    sql = "SELECT a.name as ref_table ,b.name as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable FROM sys.all_objects a inner join sys.all_columns b on a.object_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype WHERE a.name in (" + table_list +") ORDER BY 1,2"
+    sql = "SELECT lower(a.name) as ref_table, lower(b.name) as ref_column ,c.name as typename ,CONVERT(VARCHAR(50),b.precision) precision ,CONVERT(VARCHAR(50),b.scale) scale ,CONVERT(VARCHAR(50),b.max_length) max_length ,b.is_nullable nullable FROM sys.all_objects a inner join sys.all_columns b on a.object_id= b.object_id inner join sys.systypes c on b.system_type_id = c.xtype WHERE a.name in (" + table_list +") ORDER BY 1,2"
 
     with UseSqlserverDB(target_db) as cursor:
         return query(cursor,sql)
