@@ -1,3 +1,10 @@
+######
+#
+#
+######
+
+
+
 import pandas as pd
 import datetime
 from openpyxl import Workbook
@@ -15,15 +22,16 @@ SEED_FILE = r".\seed\DDL_GAP_AB.xlsx"
 excelName = file_name('DDL_GAP_AB','xlsx')
 workbook = load_workbook(SEED_FILE)
 ddl_sheet = workbook.get_sheet_by_name('DDL')
-view_sheet = workbook.get_sheet_by_name('VIEW')
+sp_sheet = workbook.get_sheet_by_name('SP')
 index_sheet = workbook.get_sheet_by_name('INDEX')
 
-def merge_ddl(dev, qa, sheet):
 
-    dev = dev.fillna('null')
-    qa = qa.fillna('null')
+def merge_ddl(db1, db2, sheet):
 
-    gap = pd.merge(dev, qa, on = ['table_name','column_name'], how='outer')
+    db1 = db1.fillna('null')
+    db2 = db2.fillna('null')
+
+    gap = pd.merge(db1, db2, on = ['table_name','column_name'], how='outer')
 
     for index, col in gap.iterrows():
         if identify_backup_tables(col[0].lower()):
@@ -47,12 +55,41 @@ def merge_ddl(dev, qa, sheet):
             elif i in (7,8,9,10,11):   
                 sheet.cell(row=index+3,column=i+1).fill=sty.PatternFill(fill_type='solid',fgColor="DAC45E")
 
-def merge_index(dev, qa, sheet):
 
-    dev = dev.fillna('null')
-    qa = qa.fillna('null')
+def merge_sp(db1, db2, sheet):
 
-    gap = pd.merge(dev, qa, on = ['table_nm','index_nm'], how='outer')
+    db1 = db1.fillna('null')
+    db2 = db2.fillna('null')
+    gap = pd.merge(db1, db2, on = ['Type','name'], how='outer')
+
+    for index, col in gap.iterrows():
+        if identify_backup_tables(col[0].lower()):
+            gap = gap.drop(index)
+        sp_a = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+        sp_b = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+        if sp_a == sp_b:
+            gap = gap.drop(index)
+
+    gap = gap.fillna('null')
+    gap = gap.reset_index(drop=True)
+
+    for index, col in gap.iterrows():
+        for i in range(0, len(col), 1):
+            sheet.cell(row=index+2,column=i+1).value = col[i]
+            if i == 2:
+                sheet.cell(row=index+2,column=i+1).fill=sty.PatternFill(fill_type='solid',fgColor="C28EEA")
+            elif i == 3:   
+                sheet.cell(row=index+2,column=i+1).fill=sty.PatternFill(fill_type='solid',fgColor="DAC45E")
+            elif i == 4:
+                sheet.cell(row=index+2,column=i+1).fill=sty.PatternFill(fill_type='solid',fgColor="68AE59")
+           
+
+def merge_index(db1, db2, sheet):
+
+    db1 = db1.fillna('null')
+    db2 = db2.fillna('null')
+
+    gap = pd.merge(db1, db2, on = ['table_nm','index_nm'], how='outer')
 
     for index, col in gap.iterrows():
         if identify_backup_tables(col[0].lower()):
@@ -83,6 +120,19 @@ def check_ddl(workbook,ddl_sheet,db_a, db_b):
 
     merge_ddl(ddl_a,ddl_b,new_sheet)
     
+
+def check_sp(workbook,sp_sheet,db_a, db_b):
+
+    query = "SELECT CASE a.[type] WHEN 'P' THEN 'Stored Procedures' WHEN 'V' THEN 'Views' WHEN 'AF' THEN 'Aggregate function' END AS 'Type', a.name, b.[definition] FROM sys.all_objects a, sys.sql_modules b WHERE a.is_ms_shipped=0 AND a.object_id = b.object_id AND a.[type] IN ('P','V','AF') order by a.[type], a.[name] ASC"
+
+    new_sheet = workbook.copy_worksheet(sp_sheet)
+    new_sheet.title = "SP"
+    sp_a = DB.query_db_pandas(query, db_a)
+    sp_b = DB.query_db_pandas(query, db_b)
+
+    merge_sp(sp_a,sp_b,new_sheet)
+
+
 def check_index(workbook,ddl_sheet,db_a, db_b):
 
     query = "SELECT DISTINCT o.name as table_nm,i.name as index_nm, 'Y' as val FROM SYS.OBJECTS O JOIN SYS.index_columns IC ON IC.OBJECT_ID = O.OBJECT_ID JOIN SYS.COLUMNS C ON IC.column_id = C.column_id and C.OBJECT_ID = O.OBJECT_ID JOIN SYS.INDEXES I ON I.OBJECT_ID = O.OBJECT_ID AND I.index_id = IC.index_id JOIN information_schema.tables tab ON O.NAME = tab.TABLE_NAME AND tab.table_schema = 'dbo' WHERE o.type = 'U' AND (table_name LIKE 'D[_]%' OR table_name LIKE 'B[_]%' OR table_name LIKE 'R[_]%' OR table_name LIKE 'F[_]%' OR table_name LIKE 'RPT[_]%') ORDER BY o.name,i.name"
@@ -97,13 +147,14 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.UAT_TX_CAMPING_MART
-    db_b = acct.DEV_DMA_MART_TEST
+    db_a = acct.QA_MS_DASHBOARD_MART
+    db_b = acct.UAT_MS_DASHBOARD_MART
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
+    check_sp(workbook,sp_sheet,db_a,db_b)
     check_index(workbook,index_sheet,db_a,db_b)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))
-workbook.remove_sheet(workbook.get_sheet_by_name('VIEW'))
+workbook.remove_sheet(workbook.get_sheet_by_name('SP'))
 workbook.remove_sheet(workbook.get_sheet_by_name('INDEX'))
 workbook.save(excelName)
