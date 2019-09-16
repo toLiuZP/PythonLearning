@@ -28,7 +28,7 @@ BASE_FILE = r".\maintain\monitor\Focus_Source_Base.xlsx"
 LOG_FILE = r".\maintain\monitor\Focus_Change_Log.xlsx"
 log_workbook = load_workbook(LOG_FILE)
 
-TARGET_DB = acct.UAT_NJSTAGEUAT
+TARGET_DB = acct.QA_NJMAINQA
 meta = pd.DataFrame(columns = ['table_type','table_name','sql'])
 ddl_pd = pd.DataFrame(columns =['ref_table','ref_column','typename','precision','scale','max_length','nullable','impact_table'])
 
@@ -122,7 +122,7 @@ def validate_base(log_wb,LOG_FILE):
 
 
 if __name__ == '__main__':
-    
+
     change_pd = validate_base(log_workbook,LOG_FILE)
 
     if not change_pd.empty:
@@ -131,7 +131,7 @@ if __name__ == '__main__':
             Here is the NJ Source change list for today, please take a look.<br><br><br>
         <html><body>""" + change_pd.to_html(index=False) + '</body></html>' 
         attachments = [os.getcwd()+LOG_FILE[1:]]
-        mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com;zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Gary.Zhou@aspiraconnect.com;Tim.Wang@aspiraconnect.com;Kelvin.Wang@aspiraconnect.com'],body,attachments)
+        mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com;zongpei.liu@aspiraconnect.com;Tom.Xie@aspiraconnect.com;Gary.Zhou@aspiraconnect.com;Tim.Wang@aspiraconnect.com'],body,attachments)
         #mail('(Auto Generation) NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body,attachments)
         read_mapping(seed_workbook)
         create_base(meta)
@@ -142,4 +142,3 @@ if __name__ == '__main__':
         <html>
         <body> </body></html>"""
         mail('(Auto Generation) All good for NJ Source Change List',['zongpei.liu@aspiraconnect.com'],body)
-    

@@ -97,7 +97,7 @@ base_workbook = load_workbook(BASE_FILE)
 LOG_FILE = r".\maintain\monitor\Focus_Migration_Change_Log.xlsx"
 log_workbook = load_workbook(LOG_FILE)
 
-TARGET_DB = acct.UAT_NJSTAGEUAT
+TARGET_DB = acct.QA_NJMAINQA
 
 
 def create_base():

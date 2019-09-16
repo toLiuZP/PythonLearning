@@ -38,4 +38,4 @@ def save_file(file_nm:str, contect:str):
         file_object.write(contect)
 
 def identify_backup_tables(table_nm:str) -> bool:
-     return re.search(r'_tmp',table_nm) or re.search(r'_temp',table_nm) or re.search(r'_bk',table_nm) or re.search(r'_bk\d{4}',table_nm) or re.search(r'_bk\d{6}',table_nm) or re.search(r'_legacy',table_nm) or re.search(r'\d{6}',table_nm)
+     return re.search(r'_tmp',table_nm) or re.search(r'_temp ',table_nm) or re.search(r'_bk',table_nm) or re.search(r'_bk\d{4}',table_nm) or re.search(r'_bk\d{6}',table_nm) or re.search(r'_legacy',table_nm) or re.search(r'\d{6}',table_nm)
