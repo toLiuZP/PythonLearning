@@ -1,7 +1,7 @@
 ###
 #  monitor Focus Migration target table
 #  determine if the changes impact Mart
-#  TODO: add re_name and drop monitor.
+#  TODO: add check constract monitor.
 ###
 
 import pandas as pd

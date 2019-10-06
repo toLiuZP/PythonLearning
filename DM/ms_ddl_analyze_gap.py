@@ -147,8 +147,8 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.UAT_TX_CAMPING_MART
-    db_b = acct.PROD_TX_CAMPING_MART
+    db_a = acct.DEV_NJ_HF_MART
+    db_b = acct.QA_NJ_HF_MART
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
     check_sp(workbook,sp_sheet,db_a,db_b)

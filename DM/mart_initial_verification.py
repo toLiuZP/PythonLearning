@@ -18,9 +18,9 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.QA_TX_CAMPING_MART
+TARGET_DB = acct.DEV_NJ_HF_MART
 table_list = []
-table_list = ['D_ACCOUNT','D_ADDRESS']
+table_list = ['D_ADDRESS']
 
 
 filename = r'.\seed\business_key.json'
@@ -182,9 +182,15 @@ def check_column(cursor, tb_list, business_key_conf):
 
         # checking if column values are all NULL except the -1 one
         null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " IS NOT NULL"
+        not_empty_ind = True
+        not_empty_ind = has_data(cursor,null_check_sql)
 
-        if not has_data(cursor,null_check_sql):
+        if not not_empty_ind:
             print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty.")
+        elif not_empty_ind:
+            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " <> ''"
+            if not has_data(cursor,null_check_sql):
+                print ("\033[32m" + table_name + "." + column_name + "\033[0m are all empty string.")
         elif str(column_name) == "MART_SOURCE_ID":
             has_mart_source_id = True
         elif str(column_name) == "AWO_ID":

@@ -1,17 +1,38 @@
+from openpyxl import Workbook
+from openpyxl import load_workbook
+import pandas as pd
 import os
 import sys
 sys.path.append(os.getcwd())
 from tool.tool import file_name 
 
-column_list = ('ADULT_13_OVER_QTY','YOUTH_QTY','SIX_UP_QTY','FIVE_UNDER_QTY','TWO_UNDER_QTY','GA_QTY','GAC_QTY','TOUR_GUIDE_QTY','SELF_GUIDED_AUDIO_QTY','SELF_GUIDED_NON_AUDIO_QTY','MOTORCOACH_QTY','ALL_TYPES_QTY','SENIOR_QTY','DVET_QTY','COMP_QTY','GENERAL_ADMISSION_QTY','ADULT_PRE_PAID_QTY','CHILD_12_UNDER_QTY','STUDENT_1_SITE_QTY','STUDENT_2_SITE_QTY','STUDENT_3_SITE_QTY','ADULT_W10_STUDENTS_QTY','BUS_DRIVER_QTY','CHILDREN_0_5_QTY','CHILDREN_6_15_QTY','STUDENT_QTY','FAMILY_QTY','CHILD_0_4_QTY','CHILD_5_12_QTY','SCHOOL_GROUP_QTY','YOUTH_GROUP_QTY','ACTIVE_RETIRED_MILITARY_QTY','GROUP_ENTRY_QTY','CHILD_6_12_QTY','ADULT_QTY','CHILD_4_11_QTY','CHILD_0_3_QTY','SENIOR_65_QTY','ADULT_1_SITE_QTY','ADULT_2_SITE_QTY','ADULT_3_SITE_QTY','CHILD_UNDER_13_ROUND_TRIP_QTY','CHILD_UNDER_13_ONE_WAY_QTY','ADULT_13_OVER_ONE_WAY_QTY','ADULT_13_OVER_ROUND_TRIP_QTY','TPWD_EMPLOYEE_QTY','CHILD_0_5_QTY','CHILD_0_12_QTY','CHILD_0_18_QTY','FAMILY_TICKET_NON_REFUNDABLE_QTY','ADULT_GROUP_BF_IH_QTY','ADULT_GROUP_BF_M_QTY','ADULT_GROUP_IH_BF_M_QTY','ADULT_GROUP_IH_M_QTY','GROUP_BUS_DRIVER_TEACHER_QTY','STUDENT_GROUP_BF_QTY','STUDENT_GROUP_BF_IH_QTY','STUDENT_GROUP_BF_IH_M_QTY','STUDENT_GROUP_BF_M_QTY','STUDENT_GROUP_IH_QTY','STUDENT_GROUP_IH_M_QTY')
 
-drop_sql_txt = '''
-IF EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_TICKET') AND name='column_to_replace')
+SEED_FILE = r".\seed\Column_gen.xlsx"
+meta = pd.read_excel(SEED_FILE)
+f = open(file_name("Gen_Script",".sql"), "w")  
+
+sql_txt = '''
+IF NOT EXISTS(SELECT * from dbo.syscolumns WHERE id=object_id('dbo.D_LICENSE_REPORT') AND name='column_to_replace')
 BEGIN
-	ALTER TABLE D_TICKET DROP COLUMN column_to_replace
-	PRINT '[INFO] DROPPED COLUMN [DBO].[D_TICKET].[column_to_replace]'
+	ALTER TABLE D_LICENSE_REPORT ADD column_to_replace varchar(500) NULL
+	exec sys.sp_addextendedproperty 'MS_Description', 'xxxxxxxxxxxxxxxxxx.', 'schema', 'dbo', 'table', 'D_LICENSE_REPORT', 'column', 'column_to_replace'
+	PRINT '[INFO] ADD COLUMN [DBO].[D_LICENSE_REPORT].[column_to_replace]'
 END
 '''
+
+for index, col in meta.iterrows():
+	print(sql_txt.replace('column_to_replace',col[0]).replace('xxxxxxxxxxxxxxxxxx',col[1]))
+	f.write(sql_txt.replace('column_to_replace',col[0]).replace('xxxxxxxxxxxxxxxxxx',col[1]))
+	
+f.close()
+
+
+
+'''
+column_list = (
+'QUESTION_ANIMAL_TYPE_VAL'
+,'QUESTION_WEIGHT_VAL'
+)
 
 f = open(file_name("Gen_Script",".sql"), "w")  
 
@@ -19,3 +40,4 @@ for item in column_list:
 	print(drop_sql_txt.replace('column_to_replace',item))
 	f.write(drop_sql_txt.replace('column_to_replace',item))
 f.close()
+'''
