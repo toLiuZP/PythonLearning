@@ -63,7 +63,7 @@ def merge_sp(db1, db2, sheet):
     gap = pd.merge(db1, db2, on = ['Type','name'], how='outer')
 
     for index, col in gap.iterrows():
-        if identify_backup_tables(col[0].lower()):
+        if identify_backup_tables(str(col[0]).lower()):
             gap = gap.drop(index)
         sp_a = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
         sp_b = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
@@ -147,8 +147,8 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.DEV_NJ_HF_MART
-    db_b = acct.QA_NJ_HF_MART
+    db_a = acct.QA_NJ_HF_MART
+    db_b = acct.DEV_DMA_MART_TEST
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
     check_sp(workbook,sp_sheet,db_a,db_b)

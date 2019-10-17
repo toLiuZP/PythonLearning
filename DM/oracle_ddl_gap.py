@@ -63,12 +63,12 @@ def check_synonyms(workbook,sheet,db_a,schema_a,name_a,db_b,schema_b,name_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.PROD_CDC_US
-    name_a = 'PROD_CDC_US'
-    schema_a = 'LIVE_KS'
-    db_b = acct.UAT_CDC_US
-    name_b = 'UAT_CDC_US'
-    schema_b = 'LIVE_KS'
+    db_a = acct.QA_CDC
+    name_a = 'CO'
+    schema_a = 'LIVE_CO_QA3'
+    db_b = acct.QA_CDC
+    name_b = 'TX'
+    schema_b = 'LIVE_TX_QA3'
 
     check_ddl(workbook,ddl_sheet,db_a,schema_a,name_a,db_b,schema_b,name_b)
     check_synonyms(workbook,synonyms_sheet,db_a,schema_a,name_a,db_b,schema_b,name_b)
