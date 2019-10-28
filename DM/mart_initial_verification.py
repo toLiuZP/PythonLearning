@@ -160,10 +160,10 @@ def check_column(cursor, tb_list, business_key_conf):
         # testing code #
         
         print("checking:  \033[32m" + table_name + "\033[0m.\033[34m" + column_name+"\033[0m")
-        '''if column_name == 'D_BOND_ISSUER_KEY':
+        if column_name == 'LATITUDE_VAL':
             print('test')
             pass
-        '''
+        
         
 
         if row_count == 0:
@@ -188,7 +188,7 @@ def check_column(cursor, tb_list, business_key_conf):
         if not not_empty_ind:
             print ("\033[32m" + table_name + "." + column_name + "\033[0m is empty.")
         elif not_empty_ind:
-            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " <> ''"
+            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_name + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND convert(varchar," + column_name + ") <> ''"
             if not has_data(cursor,null_check_sql):
                 print ("\033[32m" + table_name + "." + column_name + "\033[0m are all empty string.")
         elif str(column_name) == "MART_SOURCE_ID":

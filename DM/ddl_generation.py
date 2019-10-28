@@ -29,7 +29,7 @@ HEADER = '''
  *
  * DATE      	JIRA    	USER       		DESCRIPTION
  * ----------	--------	-----------		---------------------------------------
- * [RAPLACE_TODAY]	DMA-4906	Zongpei Liu		Initialization.
+ * [RAPLACE_TODAY]	DMA-4696	Zongpei Liu		Initialization.
 */
 
 SET NOCOUNT ON
@@ -216,5 +216,5 @@ def generate_oracle_ddl():
 
 
    
-generate_ms_ddl()
-#generate_oracle_ddl()
+#generate_ms_ddl()
+generate_oracle_ddl()

@@ -20,7 +20,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.QA_NJ_HF_MART
+TARGET_DB = acct.UAT_NJ_HF_MART
 table_list = []
 messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
 #table_list = ['B_RESERVATION_VEHICLE_OCCUPANT_DATES']
@@ -221,7 +221,7 @@ def check_columns(cursor, table_nm, business_key_conf):
             msg = "\033[32m" + table_nm + "." + column_name + "\033[0m is empty."
             add_msg('5 column_check',table_nm,column_name,msg)
         elif not_empty_ind:
-            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND " + column_name + " <> ''"
+            null_check_sql = "SELECT TOP 1 " + column_name + " FROM " + table_nm + " WITH(NOLOCK) WHERE " + pk_column + " > 0 AND convert(varchar," + column_name + ") <> ''"
             if not has_data(cursor,null_check_sql):
                 msg = "\033[32m" + table_nm + "." + column_name + "\033[0m are all empty string."
                 add_msg('5 column_check',table_nm,column_name,msg)

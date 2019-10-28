@@ -65,8 +65,9 @@ def merge_sp(db1, db2, sheet):
     for index, col in gap.iterrows():
         if identify_backup_tables(str(col[0]).lower()):
             gap = gap.drop(index)
-        sp_a = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
-        sp_b = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','')
+        
+        sp_a = str(col[2]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','').upper()
+        sp_b = str(col[3]).replace('[','').replace(']','').replace('\r','').replace('\t','').replace('\n','').replace(' ','').upper()
         if sp_a == sp_b:
             gap = gap.drop(index)
 
@@ -147,12 +148,12 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.QA_NJ_HF_MART
-    db_b = acct.DEV_DMA_MART_TEST
+    db_a = acct.DEV_NJ_HF_MART
+    db_b = acct.QA_NJ_HF_MART
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
     check_sp(workbook,sp_sheet,db_a,db_b)
-    check_index(workbook,index_sheet,db_a,db_b)
+    #check_index(workbook,index_sheet,db_a,db_b)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))
 workbook.remove_sheet(workbook.get_sheet_by_name('SP'))
