@@ -13,7 +13,7 @@ import conf.acct as acct
 from tool.tool import file_name,logger 
 import db_connect.db_operator as db_operator
 
-target_db = "TX_CAMPING_MART"
+target_db = "GA_CAMPING_MART"
 seed_file = ".\seed\SYNC_TARGET_DB.sql"
 
 

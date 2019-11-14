@@ -20,7 +20,7 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.UAT_NJ_HF_MART
+TARGET_DB = acct.QA_VA_CAMPING_MART
 table_list = []
 messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
 #table_list = ['B_RESERVATION_VEHICLE_OCCUPANT_DATES']
@@ -264,7 +264,7 @@ def check_data(table_nm, business_key_conf):
     with UseSqlserverDB(TARGET_DB) as cursor:
 
         check_default_row(cursor, table_nm)
-        #check_translation(cursor, table_nm)
+        check_translation(cursor, table_nm)
         check_columns(cursor, table_nm, business_key_conf)
     
 
