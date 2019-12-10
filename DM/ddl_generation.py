@@ -3,6 +3,8 @@
 # TODO: convert column type from mssql to oracle
 # TODO: print column length > 30
 # TODO: handle PK for non-IDENTITY tables
+
+# Zongpei: added spell checking function
 ###
 
 import os
@@ -10,6 +12,7 @@ import os
 from openpyxl import Workbook
 from openpyxl import load_workbook
 import time
+from spellchecker import SpellChecker
 
 from tool.tool import save_file
 
@@ -20,7 +23,7 @@ nameTime = time.strftime('%m/%d/%Y')
 workbook = load_workbook(SEED_FILE)
 sheetnames = workbook.get_sheet_names() 
 
-check_list = ['B_CUSTOMER_MERGE']
+check_list = ['D_AGE_CATEGRY']
 #check_list = ['B_AGENT_BANK_ACCOUNT','B_AGENT_CONTACT','B_AGENT_OWNER','B_CUSTOMER_BUSINESS_OWNERSHIP','B_CUSTOMER_CHILD_SUPPORT','B_CUSTOMER_HUNTER_EDUCATION','B_CUSTOMER_LEPERMIT','B_CUSTOMER_QUALIFICATION','B_CUSTOMER_RESTRICTION','B_GROUP_MEMBERSHIP','B_GROUP_PERMISSION','B_HUNT_APPLICATION_CHOICE','B_HUNT_APPLICATION_CUSTOMER','B_HUNT_AREA_COUNTY','B_HUNT_SEASON_HUNT','B_HUNT_TYPE_LICENSE_YEAR_HUNT','B_HUNT_TYPE_LICENSE_YEAR_HUNT_GENERATION','B_ITEM_PACKAGE','B_ITEM_PROPERTIES','B_ITEM_QUESTION','B_ITEM_QUESTION_ANSWER','B_LICENSE_ANCILLARY_DATA','B_LICENSE_REPORT_QUESTION_ACTION','B_LICENSE_REPORT_TEMPLATE_USAGE_LEVEL','B_USER_OUTLET','B_VESSEL_DOCUMENTATION','B_VESSEL_HOME_PORT','B_VESSEL_LEASE','B_VESSEL_OWNERSHIP','D_ADDRESS','D_AGENT','D_AGENT_APPLICATION_BUSINESS_INFO','D_ANSWER_OPTION','D_AUDIT_TRANSACTION_LOG','D_COUNTY','D_CUSTOMER','D_CUSTOMER_IDENTITY','D_DATE','D_DOCUMENT','D_DRAW','D_GROUP','D_HUNT','D_HUNT_APPLICATION','D_HUNT_AREA','D_HUNT_TYPE_LICENSE_YEAR','D_ITEM','D_LE_PERMIT','D_LE_PERMIT_TYPE','D_LICENSE','D_LICENSE_REPORT','D_LICENSE_REPORT_QUESTION','D_LICENSE_REPORT_QUESTION_GROUP','D_LICENSE_REPORT_TEMPLATE','D_OUTLET','D_PERMISSION','D_QUESTION','D_TIME','D_USER','D_VESSEL_PORT','F_AGENT_APPLICATION','F_HUNT_TYPE_LICENSE_YEAR_DRAW_STATISTICS','F_LICENSE_ACTION','F_PERMIT_CUSTOMER_TRANSFER','F_TRANSACTION_DETAIL','R_CUSTOMER_SOURCE','R_GENDER','R_LAND_TYPE','R_LICENSE_ACTION_TYPE','R_PERMIT_CUSTOMER_TRANSFER_TYPE','R_SALES_CHANNEL','R_STATUS_CODE','R_TRANSACTION_DETAIL_TYPE','R_TRANSACTION_TYPE','R_WEAPON','RPT_FEDERAL_AID','RPT_TRANSACTION_SALES']
 
 HEADER = '''
@@ -85,6 +88,8 @@ def beauty_empty_oracle(statement, column_nm, column_type):
 def generate_ms_ddl():
     for table_nm in check_list:
 
+        check_name(table_nm, None)
+
         ddl = ''
         comment_text = ''
         row_count = 0
@@ -102,6 +107,8 @@ def generate_ms_ddl():
                         table_found = True
                         column_nm = str(sheet.cell(row=row,column=4).value)
                         column_type = str(sheet.cell(row=row,column=6).value)
+                        if sheet.cell(row=row,column=5).value != None:
+                            check_name(column_nm,column_type)
                         pk_ind = str(sheet.cell(row=row,column=7).value)
                         column_comment = str(sheet.cell(row=row,column=19).value)
                         index_ind = str(sheet.cell(row=row,column=20).value)
@@ -149,7 +156,6 @@ def generate_oracle_ddl():
         index = ''
         constraint = ''
         
-
         for sheetname in sheetnames:
             table_found = False
             pk_found = False
@@ -165,9 +171,7 @@ def generate_oracle_ddl():
                         pk_ind = str(sheet.cell(row=row,column=7).value)
                         column_comment = str(sheet.cell(row=row,column=19).value)
                         oracle_table_nm = str(sheet.cell(row=row,column=21).value)
-
                         row_count +=1
-
                         output_table_nm = oracle_table_nm if oracle_table_nm != 'None' else table_nm
 
                         if row_count == 1:
@@ -180,9 +184,7 @@ def generate_oracle_ddl():
                         if oracle_table_nm == 'None' and len(table_nm) > 27:
                             print("\n\033[31m" + table_nm + "\033[0m name is longer than 27")
 
-
                         column_nm = oracle_column_nm if oracle_column_nm != 'None' else ms_column_nm
-                        
                         column_type = oracle_column_type if oracle_column_type != 'None' else ms_column_type
 
                         if pk_ind == 'PK':
@@ -214,7 +216,36 @@ def generate_oracle_ddl():
         output += ddl
     save_file(r'.\output\ddl\oracle.sql',output)
 
+def check_name(name, type):
 
-   
-#generate_ms_ddl()
-generate_oracle_ddl()
+    incorrect_ind = False
+    new_name = ''
+
+    spell = SpellChecker()
+
+    full_name = spell.split_words(name.replace('_',' '))
+    for word in full_name:
+        if (full_name[0] == word and word in ('d','b','f','r')) or spell.correction(word) == word:
+            new_name += word + ' '
+        elif full_name[-1] == word and word in ('key','txt','nb','amt'):
+            new_name += word + ' '
+        else:
+            incorrect_ind = True
+            new_name += spell.correction(word) + ' '
+
+    if type != None:
+        if full_name[-1] in ('key','id') and type not in ('smallint','int','bigint'):
+            print('column ' + name + ' type: <' + type + '> may be wrong.')
+        elif full_name[-1] == 'dtm' and type not in ('datetime'):
+            print('column ' + name + ' type: <' + type + '> may be wrong.')
+        elif full_name[-1] == 'nm' and not str(type).startswith('varchar'):
+            print('column ' + name + ' type: <' + type + '> may be wrong.')
+        elif full_name[-1] == 'txt' and not str(type).startswith('varchar'):
+            print('column ' + name + ' type: <' + type + '> may be wrong.')
+
+    if incorrect_ind:
+        print(name + ' should be ' + new_name.upper().replace(' ','_')[:len(new_name)-1])
+
+
+generate_ms_ddl()
+#generate_oracle_ddl()

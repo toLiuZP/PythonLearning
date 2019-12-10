@@ -1,29 +1,17 @@
-import pandas as pd
-'''
-message = pd.DataFrame(columns=['msg_type','table_nm','column_nm','msg'])
+from spellchecker import SpellChecker
 
 
-message =message.append(pd.DataFrame({
+column_name = 'TST_KEY'
+incorrect_ind = False
+new_column_name = ''
 
-'msg_type':['1'],
-'table_nm':['test'],
-'column_nm':['tt'],
-'msg':['tttttttttt']
+spell = SpellChecker()
 
-}),ignore_index=True)
-print(message['msg'])
-'''
-'''
-list_a = ['1','b','c']
-test = ''
-for _ in list_a:
-    test = test + _
-'''
-
-import pip
-from subprocess import call
- 
-for dist in pip.get_installed_distributions():
-    call("pip install --upgrade " + dist.project_name, shell=True)
-
-#print(test)
+test = spell.split_words(column_name.replace('_',' '))
+for word in test:
+    if not spell.unknown(word):
+        incorrect_ind = True
+        new_column_name += spell.correction(word) + ' '
+    else:
+        new_column_name += word + ' '
+    print(new_column_name.replace(' ','_'))
