@@ -20,8 +20,8 @@ import conf.acct as acct
 from db_connect.sqlserver_db import UseSqlserverDB, query_first_value, has_data, query
 from tool.tool import file_name,logger,identify_backup_tables
 
-TARGET_DB = acct.UAT_VA_CAMPING_MART
-table_list = []
+TARGET_DB = acct.QA_TX_CAMPING_MART
+table_list = ['D_DATE']
 messager = pd.DataFrame(columns = ['msg_type','table_nm','column_nm','messager'])
 #table_list = ['B_RESERVATION_VEHICLE_OCCUPANT_DATES']
 not_validate_list = []

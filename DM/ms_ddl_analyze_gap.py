@@ -148,11 +148,11 @@ def check_index(workbook,ddl_sheet,db_a, db_b):
 
 if __name__ == '__main__':
 
-    db_a = acct.QA_OR_CAMPING_MART
-    db_b = acct.QA_DE_CAMPING_MART
+    db_a = acct.DEV_DMA_MART_TEST
+    db_b = acct.QA_OR_CAMPING_MART
 
     check_ddl(workbook,ddl_sheet,db_a,db_b)
-    #check_sp(workbook,sp_sheet,db_a,db_b)
+    check_sp(workbook,sp_sheet,db_a,db_b)
     check_index(workbook,index_sheet,db_a,db_b)
     
 workbook.remove_sheet(workbook.get_sheet_by_name('DDL'))

@@ -42,4 +42,4 @@ def build_target_db(acct:dict):
 
 
 clean_dma_test_mart(acct.DEV_DMA_MART_TEST)
-build_target_db(acct.DEV_DMA_MART_TEST)
+#build_target_db(acct.DEV_DMA_MART_TEST)
