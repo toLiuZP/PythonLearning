@@ -23,8 +23,8 @@ nameTime = time.strftime('%m/%d/%Y')
 workbook = load_workbook(SEED_FILE)
 sheetnames = workbook.get_sheet_names() 
 
-check_list = ['B_FEE_SCHEDULE_POS_INV']
-#check_list = ['B_AGENT_BANK_ACCOUNT','B_AGENT_CONTACT','B_AGENT_OWNER','B_CUSTOMER_BUSINESS_OWNERSHIP','B_CUSTOMER_CHILD_SUPPORT','B_CUSTOMER_HUNTER_EDUCATION','B_CUSTOMER_LEPERMIT','B_CUSTOMER_QUALIFICATION','B_CUSTOMER_RESTRICTION','B_GROUP_MEMBERSHIP','B_GROUP_PERMISSION','B_HUNT_APPLICATION_CHOICE','B_HUNT_APPLICATION_CUSTOMER','B_HUNT_AREA_COUNTY','B_HUNT_SEASON_HUNT','B_HUNT_TYPE_LICENSE_YEAR_HUNT','B_HUNT_TYPE_LICENSE_YEAR_HUNT_GENERATION','B_ITEM_PACKAGE','B_ITEM_PROPERTIES','B_ITEM_QUESTION','B_ITEM_QUESTION_ANSWER','B_LICENSE_ANCILLARY_DATA','B_LICENSE_REPORT_QUESTION_ACTION','B_LICENSE_REPORT_TEMPLATE_USAGE_LEVEL','B_USER_OUTLET','B_VESSEL_DOCUMENTATION','B_VESSEL_HOME_PORT','B_VESSEL_LEASE','B_VESSEL_OWNERSHIP','D_ADDRESS','D_AGENT','D_AGENT_APPLICATION_BUSINESS_INFO','D_ANSWER_OPTION','D_AUDIT_TRANSACTION_LOG','D_COUNTY','D_CUSTOMER','D_CUSTOMER_IDENTITY','D_DATE','D_DOCUMENT','D_DRAW','D_GROUP','D_HUNT','D_HUNT_APPLICATION','D_HUNT_AREA','D_HUNT_TYPE_LICENSE_YEAR','D_ITEM','D_LE_PERMIT','D_LE_PERMIT_TYPE','D_LICENSE','D_LICENSE_REPORT','D_LICENSE_REPORT_QUESTION','D_LICENSE_REPORT_QUESTION_GROUP','D_LICENSE_REPORT_TEMPLATE','D_OUTLET','D_PERMISSION','D_QUESTION','D_TIME','D_USER','D_VESSEL_PORT','F_AGENT_APPLICATION','F_HUNT_TYPE_LICENSE_YEAR_DRAW_STATISTICS','F_LICENSE_ACTION','F_PERMIT_CUSTOMER_TRANSFER','F_TRANSACTION_DETAIL','R_CUSTOMER_SOURCE','R_GENDER','R_LAND_TYPE','R_LICENSE_ACTION_TYPE','R_PERMIT_CUSTOMER_TRANSFER_TYPE','R_SALES_CHANNEL','R_STATUS_CODE','R_TRANSACTION_DETAIL_TYPE','R_TRANSACTION_TYPE','R_WEAPON','RPT_FEDERAL_AID','RPT_TRANSACTION_SALES']
+gen_tables = ['D_AGE_CATEGORY','D_DATE','R_SALES_CHANNEL','R_PURCHASE_TYPE','R_ORDER_CATEGORY','D_CUSTOMER','D_PRODUCT','F_SALES']
+#gen_tables = ['B_AGENT_BANK_ACCOUNT','B_AGENT_CONTACT','B_AGENT_OWNER','B_CUSTOMER_BUSINESS_OWNERSHIP','B_CUSTOMER_CHILD_SUPPORT','B_CUSTOMER_HUNTER_EDUCATION','B_CUSTOMER_LEPERMIT','B_CUSTOMER_QUALIFICATION','B_CUSTOMER_RESTRICTION','B_GROUP_MEMBERSHIP','B_GROUP_PERMISSION','B_HUNT_APPLICATION_CHOICE','B_HUNT_APPLICATION_CUSTOMER','B_HUNT_AREA_COUNTY','B_HUNT_SEASON_HUNT','B_HUNT_TYPE_LICENSE_YEAR_HUNT','B_HUNT_TYPE_LICENSE_YEAR_HUNT_GENERATION','B_ITEM_PACKAGE','B_ITEM_PROPERTIES','B_ITEM_QUESTION','B_ITEM_QUESTION_ANSWER','B_LICENSE_ANCILLARY_DATA','B_LICENSE_REPORT_QUESTION_ACTION','B_LICENSE_REPORT_TEMPLATE_USAGE_LEVEL','B_USER_OUTLET','B_VESSEL_DOCUMENTATION','B_VESSEL_HOME_PORT','B_VESSEL_LEASE','B_VESSEL_OWNERSHIP','D_ADDRESS','D_AGENT','D_AGENT_APPLICATION_BUSINESS_INFO','D_ANSWER_OPTION','D_AUDIT_TRANSACTION_LOG','D_COUNTY','D_CUSTOMER','D_CUSTOMER_IDENTITY','D_DATE','D_DOCUMENT','D_DRAW','D_GROUP','D_HUNT','D_HUNT_APPLICATION','D_HUNT_AREA','D_HUNT_TYPE_LICENSE_YEAR','D_ITEM','D_LE_PERMIT','D_LE_PERMIT_TYPE','D_LICENSE','D_LICENSE_REPORT','D_LICENSE_REPORT_QUESTION','D_LICENSE_REPORT_QUESTION_GROUP','D_LICENSE_REPORT_TEMPLATE','D_OUTLET','D_PERMISSION','D_QUESTION','D_TIME','D_USER','D_VESSEL_PORT','F_AGENT_APPLICATION','F_HUNT_TYPE_LICENSE_YEAR_DRAW_STATISTICS','F_LICENSE_ACTION','F_PERMIT_CUSTOMER_TRANSFER','F_TRANSACTION_DETAIL','R_CUSTOMER_SOURCE','R_GENDER','R_LAND_TYPE','R_LICENSE_ACTION_TYPE','R_PERMIT_CUSTOMER_TRANSFER_TYPE','R_SALES_CHANNEL','R_STATUS_CODE','R_TRANSACTION_DETAIL_TYPE','R_TRANSACTION_TYPE','R_WEAPON','RPT_FEDERAL_AID','RPT_TRANSACTION_SALES']
 
 HEADER = '''
 /*
@@ -48,10 +48,12 @@ PK_IDENTITY_COLUMN = '        [RAPLACE_COLUMN_NM][RAPLACE_COLUMN_TYPE]IDENTITY(1
 N_COLUMN = '        [RAPLACE_COLUMN_NM][RAPLACE_COLUMN_TYPE]NULL,\n'
 COMMENT = "	exec sys.sp_addextendedproperty 'MS_Description', '[RAPLACE_COMMENT]', 'schema', 'dbo', 'table', '[RAPLACE_TABLE_NM]', 'column', '[RAPLACE_COLUMN_NM]'\n"
 INDEX = '''
-IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[[RAPLACE_TABLE_NM]]','U') AND i.name = '[RAPLACE_TABLE_NM]_[RAPLACE_COLUMN_NM]')
+IF NOT EXISTS( SELECT TOP 1 1 FROM sys.indexes i WHERE i.object_id = object_id('[dbo].[[RAPLACE_TABLE_NM]]','U') AND i.name = '[RAPLACE_TABLE_NM]_[RAPLACE_COLUMN_NM]_IDX')
 BEGIN
-    CREATE NONCLUSTERED INDEX [[RAPLACE_TABLE_NM]_[RAPLACE_COLUMN_NM]] ON [dbo].[[RAPLACE_TABLE_NM]]([[RAPLACE_COLUMN_NM]]) ON {INDEXFG}
-    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[[RAPLACE_TABLE_NM]].[[RAPLACE_TABLE_NM]_[RAPLACE_COLUMN_NM]]'
+    CREATE NONCLUSTERED INDEX [[RAPLACE_TABLE_NM]_[RAPLACE_COLUMN_NM]_IDX] ON [dbo].[[RAPLACE_TABLE_NM]]([[RAPLACE_COLUMN_NM]])
+    WITH (PAD_INDEX= OFF,STATISTICS_NORECOMPUTE =OFF, SORT_IN_TEMPDB = ON, DROP_EXISTING= OFF, MAXDOP=0, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS= ON, DATA_COMPRESSION=PAGE)
+    ON {INDEXFG}
+    PRINT '[INFO] CREATED NONCLUSTERED INDEX [dbo].[[RAPLACE_TABLE_NM]].[[RAPLACE_TABLE_NM]_[RAPLACE_COLUMN_NM]_IDX]'
 END
 '''
 
@@ -86,7 +88,7 @@ def beauty_empty_oracle(statement, column_nm, column_type):
 
 
 def generate_ms_ddl():
-    for table_nm in check_list:
+    for table_nm in gen_tables:
 
         check_name(table_nm, None)
 
@@ -147,7 +149,7 @@ END\nGO\n\n'''.replace('[RAPLACE_TABLE_NM]',table_nm)
 def generate_oracle_ddl():
 
     output = ''
-    for table_nm in check_list:
+    for table_nm in gen_tables:
 
         ddl = ''
         comment_text = ''
@@ -227,7 +229,7 @@ def check_name(name, type):
     for word in full_name:
         if (full_name[0] == word and word in ('d','b','f','r')) or spell.correction(word) == word:
             new_name += word + ' '
-        elif full_name[-1] == word and word in ('key','txt','nb','amt'):
+        elif (full_name[-1] == word and word in ('key','txt','nb','amt','dtm','qty','dt')) or word in ('prev'):
             new_name += word + ' '
         else:
             incorrect_ind = True
@@ -235,16 +237,16 @@ def check_name(name, type):
 
     if type != None:
         if full_name[-1] in ('key','id') and type not in ('smallint','int','bigint'):
-            print('column ' + name + ' type: <' + type + '> may be wrong.')
+            print('column ' + name + ' type: <\028[32m' + type + '\033[0m> may be wrong.')
         elif full_name[-1] == 'dtm' and type not in ('datetime'):
-            print('column ' + name + ' type: <' + type + '> may be wrong.')
-        elif full_name[-1] == 'nm' and not str(type).startswith('varchar'):
-            print('column ' + name + ' type: <' + type + '> may be wrong.')
-        elif full_name[-1] == 'txt' and not str(type).startswith('varchar'):
-            print('column ' + name + ' type: <' + type + '> may be wrong.')
+            print('column ' + name + ' type: <\028[32m' + type + '\033[0m> may be wrong.')
+        elif full_name[-1] == 'nm' and not (str(type).startswith('varchar') or str(type).startswith('char')):
+            print('column ' + name + ' type: <\028[32m' + type + '\033[0m> may be wrong.')
+        elif full_name[-1] == 'txt' and not (str(type).startswith('varchar') or str(type).startswith('char')):
+            print('column ' + name + ' type: <\028[32m' + type + '\033[0m> may be wrong.')
 
     if incorrect_ind:
-        print(name + ' should be ' + new_name.upper().replace(' ','_')[:len(new_name)-1])
+        print(name + ' should be \033[32m' + new_name.upper().replace(' ','_')[:len(new_name)-1] +'\033[0m')
 
 
 generate_ms_ddl()

@@ -13,7 +13,7 @@ import conf.acct as acct
 from tool.tool import file_name,logger 
 import db_connect.db_operator as db_operator
 
-target_db = "GA_CAMPING_MART"
+target_db = "MS_HF_MART"
 seed_file = ".\seed\SYNC_TARGET_DB.sql"
 
 
@@ -42,4 +42,4 @@ def build_target_db(acct:dict):
 
 
 clean_dma_test_mart(acct.DEV_DMA_MART_TEST)
-#build_target_db(acct.DEV_DMA_MART_TEST)
+build_target_db(acct.DEV_DMA_MART_TEST)
